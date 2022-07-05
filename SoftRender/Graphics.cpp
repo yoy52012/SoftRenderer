@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <array>
 #include "Utils.h"
+
 namespace SoftRenderer
 {
 	void Graphics::init(int width, int height)
@@ -50,7 +51,7 @@ namespace SoftRenderer
 		vd1.screenPosition = glm::vec2(tmpPos1.x, tmpPos1.y);
 		vd2.screenPosition = glm::vec2(tmpPos2.x, tmpPos2.y);
 
-		rasterizeTriangle(vd0, vd1, vd2);
+		rasterizeTriangle3(vd0, vd1, vd2);
 	}
 
 	void Graphics::drawMesh(const Mesh& mesh)
@@ -149,6 +150,213 @@ namespace SoftRenderer
 		return { x, y };
 	}
 
+	void Graphics::scanLine(const Shader::VertexData& left, const Shader::VertexData& right)
+	{
+		int length = right.screenPosition.x - left.screenPosition.x + 1;
+		for (int i = 0; i <= length; i++)
+		{
+			Shader::VertexData v = Shader::VertexData::lerp(left, right, static_cast<float>(i / length));
+			v.screenPosition.x = left.screenPosition.x + i;
+			v.screenPosition.y = left.screenPosition.y;
+			mBackBuffer->writeColor(v.screenPosition.x, v.screenPosition.y, glm::vec4(1.0, 1.0, 1.0, 1.0));
+		}
+		
+	}
+
+	void Graphics::rasterizeTopTriangle(const Shader::VertexData& v0, const Shader::VertexData& v1, const Shader::VertexData& v2)
+	{
+		Shader::VertexData top, left, right;
+		Shader::VertexData newLeft, newRight;
+		left  = v1.screenPosition.x > v2.screenPosition.x ? v2 : v1;
+		right = v1.screenPosition.x > v2.screenPosition.x ? v1 : v2;
+		top   = v0;
+
+		int dy = top.screenPosition.y - left.screenPosition.y + 1;
+		int nowY = top.screenPosition.y;
+
+		for (int i = dy; i >= 0; --i)
+		{
+			float weight = 0;
+			if(dy != 0)
+				weight =  (float) i/ dy;
+			newLeft  = Shader::VertexData::lerp(left, top, weight);
+			newRight = Shader::VertexData::lerp(right, top, weight);
+			newLeft.screenPosition.y = newRight.screenPosition.y = nowY;
+			scanLine(newLeft, newRight);
+			nowY--;
+		}
+	}
+
+	void Graphics::rasterizeBottomTriangle(const Shader::VertexData& v0, const Shader::VertexData& v1, const Shader::VertexData& v2)
+	{
+		Shader::VertexData left, right, bottom;
+		Shader::VertexData newLeft, newRight;
+		left  = v1.screenPosition.x > v2.screenPosition.x ? v2 : v1;
+		right = v1.screenPosition.x > v2.screenPosition.x ? v1 : v2;
+		bottom = v0;
+
+		int dy = left.screenPosition.y - bottom.screenPosition.y + 1;
+		int nowY = left.screenPosition.y;
+
+		for (int i = 0; i < dy; ++i)
+		{
+			float weight = 0;
+			if(dy != 0)
+				weight = (float) i / dy;
+			newLeft  = Shader::VertexData::lerp(left, bottom, weight);
+			newRight = Shader::VertexData::lerp(right, bottom, weight);
+			newLeft.screenPosition.y = newRight.screenPosition.y = nowY;
+			scanLine(newLeft, newRight);
+			nowY--;
+		}
+	} 
+
+	// Test whether two float or double numbers are equal.
+	// ulp: units in the last place.
+	template <typename T>
+	typename std::enable_if<!std::numeric_limits<T>::is_integer, bool>::type
+	isEqual(T x, T y, int ulp = 2) {
+	// the machine epsilon has to be scaled to the magnitude of the values used
+	// and multiplied by the desired precision in ULPs (units in the last place)
+	return std::fabs(x - y) <
+				std::numeric_limits<T>::epsilon() * std::fabs(x + y) * ulp
+			// unless the result is subnormal
+			|| std::fabs(x - y) < std::numeric_limits<T>::min();
+	}
+
+
+	void Graphics::rasterizeTriangle2(const Shader::VertexData& vertex0, const Shader::VertexData& vertex1, const Shader::VertexData& vertex2)
+	{
+		Shader::VertexData verts[3] = {vertex0, vertex1, vertex2};
+		Shader::VertexData tmp;
+
+		// sort verts's in axisY v0 < v1 < v2
+		if(verts[0].screenPosition.y > verts[1].screenPosition.y)
+		{
+			tmp= verts[0];
+			verts[0] = verts[1];
+			verts[1] = tmp; 
+		}
+		if(verts[1].screenPosition.y > verts[2].screenPosition.y)
+		{
+			tmp = verts[1];
+			verts[1] = verts[2];
+			verts[2] = tmp;
+		}
+		if(verts[0].screenPosition.y > verts[1].screenPosition.y)
+		{
+			tmp = verts[0];
+			verts[0] = verts[1];
+			verts[1] = tmp;
+		}
+
+		if(isEqual(verts[1].screenPosition.y, verts[2].screenPosition.y))
+		{
+			rasterizeBottomTriangle(verts[0], verts[1], verts[2]);
+		}
+		else if(isEqual(verts[1].screenPosition.y, verts[0].screenPosition.y))
+		{
+			rasterizeTopTriangle(verts[2], verts[1], verts[0]);
+		}
+		else
+		{
+			float weight = (verts[2].screenPosition.y - verts[1].screenPosition.y) / (verts[2].screenPosition.y - verts[0].screenPosition.y);
+			Shader::VertexData newVert = Shader::VertexData::lerp(verts[2], verts[0], weight);
+			rasterizeTopTriangle(verts[2], verts[1], newVert);
+			rasterizeBottomTriangle(verts[0], verts[1], newVert);
+		}
+	}
+
+	void Graphics::rasterizeTriangle3(const Shader::VertexData& v0, const Shader::VertexData& v1, const Shader::VertexData& v2)
+	{
+			const glm::ivec2& A = glm::ivec2((int)(v0.screenPosition.x + 0.5f), (int)(v0.screenPosition.y + 0.5f));
+			const glm::ivec2& B = glm::ivec2((int)(v1.screenPosition.x + 0.5f), (int)(v1.screenPosition.y + 0.5f));
+			const glm::ivec2& C = glm::ivec2((int)(v2.screenPosition.x + 0.5f), (int)(v2.screenPosition.y + 0.5f));
+
+			//float Z[3] = { v0.screenPosition.z, v1.screenPosition.z, v2.screenPosition.z };
+
+			int minX = std::max(std::min(A.x, std::min(B.x, C.x)), 0);
+			int minY = std::max(std::min(A.y, std::min(B.y, C.y)), 0);
+			int maxX = std::min(std::max(A.x, std::max(B.x, C.x)), mWidth-1);
+			int maxY = std::min(std::max(A.y, std::max(B.y, C.y)), mHeight-1);
+
+			//I1 = Ay - By, I2 = By - Cy, I3 = Cy - Ay
+			int I01 = A.y - B.y;
+			int I02 = B.y - C.y;
+			int I03 = C.y - A.y;
+	
+			//J1 = Bx - Ax, J2 = Cx - Bx, J3 = Ax - Cx 
+			int J01 = B.x - A.x; 
+			int J02 = C.x - B.x; 
+			int J03 = A.x - C.x; 
+
+            //K1 = AxBy - AyBx, K2 = BxCy - ByCx, K3 = CxAy - CyAx
+            int K01 = A.x * B.y - A.y * B.x;
+            int K02 = B.x * C.y - B.y * C.x;
+            int K03 = C.x * A.y - C.y * A.x;
+
+            //F1 = I1 * Px + J1 * Py + K1
+            //F2 = I2 * Px + J2 * Py + K2
+			//F3 = I3 * Px + J3 * Py + k3
+            int F01 = (I01 * minX) + (J01 * minY) + K01;
+            int F02 = (I02 * minX) + (J02 * minY) + K02;
+            int F03 = (I03 * minX) + (J03 * minY) + K03;
+
+			// Area = 1/2 * |AB| * |AC| * sin(|AB|, |AC|) = 1/2 * (AxBy - AyBx + BxCy - ByCx + CxAy - CyAx) = F1 + F2 + F3
+			int delta = F01 + F02 + F03;
+
+            //Degenerated to a line or a point
+            if (delta <= 0)
+                return;
+           
+            float oneDivideDelta = 1 / (float)delta;
+
+            //Z[1] = (Z[1] - Z[0]) * OneDivideDelta;
+	        //Z[2] = (Z[2] - Z[0]) * OneDivideDelta;
+
+
+            int Cy1 = F01, Cy2 = F02, Cy3 = F03;
+
+            for(int y = minY; y < maxY; ++y)
+            {
+                int Cx1 = Cy1;
+                int Cx2 = Cy2;
+                int Cx3 = Cy3;
+                
+                //float depth = Z[0] + Cx3 * Z[1] + Cx1 * Z[2];
+
+                for(int x = minX; x < maxX; ++x)
+                {
+					const int mask = Cx1 | Cx2 | Cx3;
+                    if(mask >= 0)
+                    {
+						glm::vec3 weights = glm::vec3(Cx2 * oneDivideDelta, Cx3 * oneDivideDelta, Cx1 * oneDivideDelta);
+
+						auto v = Shader::VertexData::barycentricLerp(v0, v1, v2, weights);
+
+						std::array<glm::vec2, 3> texcoords = { v0.texcoord, v1.texcoord, v2.texcoord };
+						std::array<float, 3> reclipW = { v0.clipW, v1.clipW, v2.clipW };
+
+						v.texcoord = interpolateTexcoord(texcoords, weights, reclipW);
+						v.texcoord /= v.clipW;
+
+						//mBackBuffer->writeColor(x, y, glm::vec4(0.0f, 1.0f, 0.0f, 1.0f));
+						mBackBuffer->writeColor(x, y, mShader->fragmentShader(v));
+
+						//mBackBuffer->WriteDepth(x, y, depth);
+                    }
+
+                    Cx1 += I01;
+                    Cx2 += I02;
+                    Cx3 += I03;
+                }
+
+                Cy1 += J01;
+                Cy2 += J02;
+                Cy3 += J03;
+            }
+	}
+
 	void Graphics::rasterizeTriangle(const Shader::VertexData& vertex0, const Shader::VertexData& vertex1, const Shader::VertexData& vertex2)
 	{
 		auto v0 = glm::ivec2(vertex0.screenPosition.x, vertex0.screenPosition.y);
@@ -212,6 +420,66 @@ namespace SoftRenderer
 					mBackBuffer->writeColor(x, y, mShader->fragmentShader(v));
 				}
 			}
+		}
+	}
+
+	void Graphics::drawLine(const glm::vec2& vertex0, const glm::vec2& vertex1)
+	{
+		auto v0 = glm::ivec2(vertex0.x, vertex0.y);
+		auto v1 = glm::ivec2(vertex1.x, vertex1.y);
+
+		int x0 = v0.x;
+		int y0 = v0.y;
+		int x1 = v1.x;
+		int y1 = v1.y;
+
+		bool steep = std::abs(y1-y0) > std::abs(x1 - x0);
+
+		//check line's slop
+		if (steep)
+		{
+			std::swap(x0, y0);
+			std::swap(x1, y1);
+		}
+
+		//check line's direction
+		if (x0 > x1)
+		{
+			std::swap(x0, x1);
+			std::swap(y0, y1);
+		}
+
+		int dx = x1 - x0;
+		int dy = y1 - y0;
+
+		int d2x = dx << 1;
+		int d2y = dy << 1; 
+		int d2xd2y = d2x - d2y;
+
+		int x = x0;
+		int y = y0;
+
+		int p = dx - d2y;
+		for (int i = 0; i <= dx; ++i)
+		{
+			if (steep)
+			{
+				mBackBuffer->writeColor(y, x, glm::vec4(1.0, 1.0, 1.0, 1.0));
+			}
+			else {
+				mBackBuffer->writeColor(x, y, glm::vec4(1.0, 1.0, 1.0, 1.0));
+			}
+
+			if (p <= 0)
+			{
+				p += d2xd2y;
+				y += 1;
+			}
+			else
+			{
+				p -= d2y; 
+			}
+			x += 1;
 		}
 	}
 }

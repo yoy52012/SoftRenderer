@@ -15,11 +15,11 @@ namespace SoftRenderer
 		FrameBuffer(unsigned int width, unsigned int height);
 		~FrameBuffer();
 
-		unsigned int getWidth() { return m_width; }
-		unsigned int getHeight() { return m_height; }
+		unsigned int getWidth() { return mWidth; }
+		unsigned int getHeight() { return mHeight; }
 
-		unsigned char* getColorBuffer() { return m_color_buffer.data(); }
-		float* getDepthBuffer() { return m_depth_buffer.data(); }
+		unsigned char* getColorBuffer() { return mColorBuffer.data(); }
+		float* getDepthBuffer() { return mDepthBuffer.data(); }
 
 		void clearColor(const glm::vec4& color);
 		void clearDepth(float depth);
@@ -29,10 +29,10 @@ namespace SoftRenderer
 
 
 	private:
-		std::vector<unsigned char> m_color_buffer;
-		std::vector<float> m_depth_buffer;
-		unsigned int m_width;
-		unsigned int m_height;
+		std::vector<unsigned char> mColorBuffer;
+		std::vector<float> mDepthBuffer;
+		unsigned int mWidth;
+		unsigned int mHeight;
 	};
 
 }

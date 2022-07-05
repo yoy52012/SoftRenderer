@@ -2,131 +2,131 @@
 #include <windows.h>
 
 
-HWND window;
-HINSTANCE windowInstance;
-std::string title = "Vulkan Example";
-std::string name = "vulkanExample";
-
-HWND setupWindow(HINSTANCE hinstance, WNDPROC wndproc)
-{
-	bool fullscreen = false;
-	int width = 1280;
-	int height = 720;
-
-	WNDCLASSEX wndClass;
-	wndClass.cbSize = sizeof(WNDCLASSEX);
-	wndClass.style = CS_HREDRAW | CS_VREDRAW;
-	wndClass.lpfnWndProc = wndproc;
-	wndClass.cbClsExtra = 0;
-	wndClass.cbWndExtra = 0;
-	wndClass.hInstance = GetModuleHandle(NULL);
-	wndClass.hIcon = LoadIcon(NULL, IDI_APPLICATION);
-	wndClass.hCursor = LoadCursor(NULL, IDC_ARROW);
-	wndClass.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
-	wndClass.lpszMenuName = NULL;
-	wndClass.lpszClassName = name.c_str();
-	wndClass.hIconSm = LoadIcon(NULL, IDI_WINLOGO);
-
-	if (!RegisterClassEx(&wndClass))
-	{
-		std::cout << "Could not register window class!\n";
-		fflush(stdout);
-		exit(1);
-	}
-
-	int screenWidth = GetSystemMetrics(SM_CXSCREEN);
-	int screenHeight = GetSystemMetrics(SM_CYSCREEN);
-
-	if (fullscreen)
-	{
-		if ((width != (uint32_t)screenWidth) && (height != (uint32_t)screenHeight))
-		{
-			DEVMODE dmScreenSettings;
-			memset(&dmScreenSettings, 0, sizeof(dmScreenSettings));
-			dmScreenSettings.dmSize = sizeof(dmScreenSettings);
-			dmScreenSettings.dmPelsWidth = width;
-			dmScreenSettings.dmPelsHeight = height;
-			dmScreenSettings.dmBitsPerPel = 32;
-			dmScreenSettings.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT;
-			if (ChangeDisplaySettings(&dmScreenSettings, CDS_FULLSCREEN) != DISP_CHANGE_SUCCESSFUL)
-			{
-				if (MessageBox(NULL, "Fullscreen Mode not supported!\n Switch to window mode?", "Error", MB_YESNO | MB_ICONEXCLAMATION) == IDYES)
-				{
-					fullscreen = false;
-				}
-				else
-				{
-					return nullptr;
-				}
-			}
-			screenWidth = width;
-			screenHeight = height;
-		}
-
-	}
-
-	DWORD dwExStyle;
-	DWORD dwStyle;
-
-	if (fullscreen)
-	{
-		dwExStyle = WS_EX_APPWINDOW;
-		dwStyle = WS_POPUP | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
-	}
-	else
-	{
-		dwExStyle = WS_EX_APPWINDOW | WS_EX_WINDOWEDGE;
-		dwStyle = WS_OVERLAPPEDWINDOW | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
-	}
-
-	RECT windowRect;
-	windowRect.left = 0L;
-	windowRect.top = 0L;
-	windowRect.right = fullscreen ? (long)screenWidth : (long)width;
-	windowRect.bottom = fullscreen ? (long)screenHeight : (long)height;
-
-	AdjustWindowRectEx(&windowRect, dwStyle, FALSE, dwExStyle);
-
-	std::string windowTitle = "Example";
-	window = CreateWindowEx(0,
-		name.c_str(),
-		windowTitle.c_str(),
-		dwStyle | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
-		0,
-		0,
-		windowRect.right - windowRect.left,
-		windowRect.bottom - windowRect.top,
-		NULL,
-		NULL,
-		hinstance,
-		NULL);
-
-	if (!fullscreen)
-	{
-		// Center on screen
-		uint32_t x = (GetSystemMetrics(SM_CXSCREEN) - windowRect.right) / 2;
-		uint32_t y = (GetSystemMetrics(SM_CYSCREEN) - windowRect.bottom) / 2;
-		SetWindowPos(window, 0, x, y, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
-	}
-
-	if (!window)
-	{
-		printf("Could not create window!\n");
-		fflush(stdout);
-		return nullptr;
-	}
-
-	ShowWindow(window, SW_SHOW);
-	SetForegroundWindow(window);
-	SetFocus(window);
-
-	return window;
-}
-
-LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
-{
-	return (DefWindowProc(hWnd, uMsg, wParam, lParam));
-}
+//HWND window;
+//HINSTANCE windowInstance;
+//std::string title = "Vulkan Example";
+//std::string name = "vulkanExample";
+//
+//HWND setupWindow(HINSTANCE hinstance, WNDPROC wndproc)
+//{
+//	bool fullscreen = false;
+//	int width = 1280;
+//	int height = 720;
+//
+//	WNDCLASSEX wndClass;
+//	wndClass.cbSize = sizeof(WNDCLASSEX);
+//	wndClass.style = CS_HREDRAW | CS_VREDRAW;
+//	wndClass.lpfnWndProc = wndproc;
+//	wndClass.cbClsExtra = 0;
+//	wndClass.cbWndExtra = 0;
+//	wndClass.hInstance = GetModuleHandle(NULL);
+//	wndClass.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+//	wndClass.hCursor = LoadCursor(NULL, IDC_ARROW);
+//	wndClass.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
+//	wndClass.lpszMenuName = NULL;
+//	wndClass.lpszClassName = name.c_str();
+//	wndClass.hIconSm = LoadIcon(NULL, IDI_WINLOGO);
+//
+//	if (!RegisterClassEx(&wndClass))
+//	{
+//		std::cout << "Could not register window class!\n";
+//		fflush(stdout);
+//		exit(1);
+//	}
+//
+//	int screenWidth = GetSystemMetrics(SM_CXSCREEN);
+//	int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+//
+//	if (fullscreen)
+//	{
+//		if ((width != (uint32_t)screenWidth) && (height != (uint32_t)screenHeight))
+//		{
+//			DEVMODE dmScreenSettings;
+//			memset(&dmScreenSettings, 0, sizeof(dmScreenSettings));
+//			dmScreenSettings.dmSize = sizeof(dmScreenSettings);
+//			dmScreenSettings.dmPelsWidth = width;
+//			dmScreenSettings.dmPelsHeight = height;
+//			dmScreenSettings.dmBitsPerPel = 32;
+//			dmScreenSettings.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT;
+//			if (ChangeDisplaySettings(&dmScreenSettings, CDS_FULLSCREEN) != DISP_CHANGE_SUCCESSFUL)
+//			{
+//				if (MessageBox(NULL, "Fullscreen Mode not supported!\n Switch to window mode?", "Error", MB_YESNO | MB_ICONEXCLAMATION) == IDYES)
+//				{
+//					fullscreen = false;
+//				}
+//				else
+//				{
+//					return nullptr;
+//				}
+//			}
+//			screenWidth = width;
+//			screenHeight = height;
+//		}
+//
+//	}
+//
+//	DWORD dwExStyle;
+//	DWORD dwStyle;
+//
+//	if (fullscreen)
+//	{
+//		dwExStyle = WS_EX_APPWINDOW;
+//		dwStyle = WS_POPUP | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
+//	}
+//	else
+//	{
+//		dwExStyle = WS_EX_APPWINDOW | WS_EX_WINDOWEDGE;
+//		dwStyle = WS_OVERLAPPEDWINDOW | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
+//	}
+//
+//	RECT windowRect;
+//	windowRect.left = 0L;
+//	windowRect.top = 0L;
+//	windowRect.right = fullscreen ? (long)screenWidth : (long)width;
+//	windowRect.bottom = fullscreen ? (long)screenHeight : (long)height;
+//
+//	AdjustWindowRectEx(&windowRect, dwStyle, FALSE, dwExStyle);
+//
+//	std::string windowTitle = "Example";
+//	window = CreateWindowEx(0,
+//		name.c_str(),
+//		windowTitle.c_str(),
+//		dwStyle | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
+//		0,
+//		0,
+//		windowRect.right - windowRect.left,
+//		windowRect.bottom - windowRect.top,
+//		NULL,
+//		NULL,
+//		hinstance,
+//		NULL);
+//
+//	if (!fullscreen)
+//	{
+//		// Center on screen
+//		uint32_t x = (GetSystemMetrics(SM_CXSCREEN) - windowRect.right) / 2;
+//		uint32_t y = (GetSystemMetrics(SM_CYSCREEN) - windowRect.bottom) / 2;
+//		SetWindowPos(window, 0, x, y, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+//	}
+//
+//	if (!window)
+//	{
+//		printf("Could not create window!\n");
+//		fflush(stdout);
+//		return nullptr;
+//	}
+//
+//	ShowWindow(window, SW_SHOW);
+//	SetForegroundWindow(window);
+//	SetFocus(window);
+//
+//	return window;
+//}
+//
+//LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+//{
+//	return (DefWindowProc(hWnd, uMsg, wParam, lParam));
+//}
 
 //int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine, int nCmdShow)
 //{
@@ -491,6 +491,53 @@ void draw(const std::array<Vertex, 3>& vertices, const glm::mat4& modelMat, cons
 #include "Image.h"
 #include "Texture.h"
 
+
+
+void keyCallback(int key, int scancode, int action, int mods)
+{
+	if (action != InputAction::PRESS)
+		return;
+	switch (key)
+	{
+	case InputKeyCode::KEY_W:
+		std::cout << "W Key" << std::endl;
+		break;
+	case InputKeyCode::KEY_A:
+		std::cout << "A Key" << std::endl;
+		break;
+	case InputKeyCode::KEY_S:
+		std::cout << "S Key" << std::endl;
+		break;
+	case InputKeyCode::KEY_D:
+		std::cout << "D Key" << std::endl;
+		break;
+	default:
+		break;
+	}
+}
+
+void mouseButtonCallback(int button, int action, int mods)
+{
+	std::string act = action == InputAction::PRESS ? "down" : "up";
+	std::string b;
+	switch (button)
+	{
+	case InputMouseButton::MOUSE_BUTTON_LEFT:
+		b = "Mouse Left";
+		break;
+	case InputMouseButton::MOUSE_BUTTON_RIGHT:
+		b = "Mouse Right";
+		break;
+	case InputMouseButton::MOUSE_BUTTON_MIDDLE:
+		b = "Mouse Middle";
+		break;
+	default:
+		break;
+	}
+
+	std::cout << b << " is " << act << std::endl;
+}
+
 void main()
 {
 
@@ -498,19 +545,23 @@ void main()
 	//setupWindow(nullptr, WndProc);
 	SoftRenderer::Window* window = SoftRenderer::Window::create("hello", 500, 500);
 
+	window->setKeyCallback(std::bind(&keyCallback, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
+	window->setMouseButtonCallback(std::bind(&mouseButtonCallback, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+
+	window->setWindowTitle("Hello");
 	
 
 	//line(100, 100, 300, 300, frameBuffer, glm::vec4(0.0, 1.0, 0.0, 1.0));
 
 	//DrawBresenhamline(10, 10, 400, 100, frameBuffer, glm::vec4(0.0, 1.0, 0.0, 1.0));
 
-	//DrawBresenhamline2(100, 250, 400, 250, frameBuffer, glm::vec4(0.0, 1.0, 0.0, 1.0));
-	//DrawBresenhamline2(250, 100, 250, 400, frameBuffer, glm::vec4(0.0, 1.0, 0.0, 1.0));
-	//DrawBresenhamline2(100, 400, 400, 100, frameBuffer, glm::vec4(0.0, 1.0, 0.0, 1.0));
-	//DrawBresenhamline2(100, 100, 400, 400, frameBuffer, glm::vec4(0.0, 1.0, 0.0, 1.0));
+	DrawBresenhamline2(100, 250, 400, 250, frameBuffer, glm::vec4(0.0, 1.0, 0.0, 1.0));
+	DrawBresenhamline2(250, 100, 250, 400, frameBuffer, glm::vec4(0.0, 1.0, 0.0, 1.0));
+	DrawBresenhamline2(100, 400, 400, 100, frameBuffer, glm::vec4(0.0, 1.0, 0.0, 1.0));
+	DrawBresenhamline2(100, 100, 400, 400, frameBuffer, glm::vec4(0.0, 1.0, 0.0, 1.0));
 
-	//DrawBresenhamline2(100, 300, 400, 200, frameBuffer, glm::vec4(0.0, 1.0, 0.0, 1.0));
-	//DrawBresenhamline2(150, 100, 350, 400, frameBuffer, glm::vec4(0.0, 1.0, 0.0, 1.0));
+	DrawBresenhamline2(100, 300, 400, 200, frameBuffer, glm::vec4(0.0, 1.0, 0.0, 1.0));
+	DrawBresenhamline2(150, 100, 350, 400, frameBuffer, glm::vec4(0.0, 1.0, 0.0, 1.0));
 
 	//glm::ivec2 v0 = {250, 400};
 	//glm::ivec2 v1 = {400, 250};
@@ -574,10 +625,14 @@ void main()
 		//render.drawTriangle(v1, v2, v3);
 		//render.drawTriangle(v4, v5, v6);
 		render.drawMesh(mesh2);
+
+		//render.drawLine(glm::vec2(100, 10), glm::vec2(400, 40));
+
+		//render.drawLine(glm::vec2(100, 100), glm::vec2(400, 400));
+
+		//render.drawLine(glm::vec2(100, 180), glm::vec2(245, 440));
+
 		render.swapBuffer();
-
-
-
 
 		//draw(vertices, modelMat, camera.getViewMatrix(), camera.getProjMatrix());
 
@@ -591,11 +646,7 @@ void main()
 
 		window->drawBuffer(render.getOutput());
 
-		MSG message;
-		while (PeekMessage(&message, NULL, 0, 0, PM_REMOVE)) {
-			TranslateMessage(&message);
-			DispatchMessage(&message);
-		}
+		window->pollEvent();
 	}
 
 

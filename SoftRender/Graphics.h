@@ -27,6 +27,8 @@ namespace SoftRenderer
 
 		void setProjMatrix(const glm::mat4& mat);
 
+		void drawLine(const glm::vec2& vertex0, const glm::vec2& vertex1);
+
 	private:
 		glm::vec3 perspectiveDivede(const glm::vec4& clipCoord);
 
@@ -36,7 +38,18 @@ namespace SoftRenderer
 
 		bool edgeFunction(const glm::ivec2& a, const glm::ivec2& b, const glm::ivec2& c);
 
-		void rasterizeTriangle(const Shader::VertexData& v0, const Shader::VertexData& v1, const Shader::VertexData& v2);
+		void rasterizeTriangle(const Shader::VertexData& vertex0, const Shader::VertexData& vertex1, const Shader::VertexData& vertex2);
+
+		void rasterizeTriangle2(const Shader::VertexData& vertex0, const Shader::VertexData& vertex1, const Shader::VertexData& vertex2);
+
+		void rasterizeTriangle3(const Shader::VertexData& vertex0, const Shader::VertexData& vertex1, const Shader::VertexData& vertex2);
+
+		void rasterizeTopTriangle(const Shader::VertexData& v0, const Shader::VertexData& v1, const Shader::VertexData& v2);
+
+		void rasterizeBottomTriangle(const Shader::VertexData& v0, const Shader::VertexData& v1, const Shader::VertexData& v2);
+
+		void scanLine(const Shader::VertexData& left, const Shader::VertexData& right);
+
 
 	private:
 		Shader::Ptr mShader;
