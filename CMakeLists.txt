@@ -1,16 +1,67 @@
-﻿# CMakeList.txt: 顶层 CMake 项目文件，在此处执行全局配置
-# 并包含子项目。
-#
-cmake_minimum_required (VERSION 3.8)
+﻿cmake_minimum_required (VERSION 3.10)
+project ("SoftRenderer")
 
-project ("SoftRender")
+set(CMAKE_CXX_STANDARD 11)
+set(THIRD_PARTY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty")
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/glm-master)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/stb-master)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/tinyobjloader)
+include_directories(
+        "${THIRD_PARTY_DIR}/glm"
+        "${THIRD_PARTY_DIR}/assimp/include"
+        "${THIRD_PARTY_DIR}/assimp/contrib"
+        "${CMAKE_CURRENT_BINARY_DIR}/third_party/assimp/include"
+        "${THIRD_PARTY_DIR}/stb"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src"
+)
 
 add_definitions(-DRESOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/resource")
 
+# assimp
+set(BUILD_SHARED_LIBS OFF)
+set(ASSIMP_NO_EXPORT ON)
+set(ASSIMP_BUILD_TESTS OFF)
+set(ASSIMP_INSTALL OFF)
+set(ASSIMP_BUILD_ASSIMP_TOOLS OFF)
+set(ASSIMP_BUILD_ZLIB ON)
 
-# 包含子项目。
-add_subdirectory ("SoftRender")
+set(ASSIMP_BUILD_ALL_IMPORTERS_BY_DEFAULT FALSE)
+set(ASSIMP_BUILD_OBJ_IMPORTER TRUE)
+set(ASSIMP_BUILD_GLTF_IMPORTER TRUE)
+
+add_subdirectory(${THIRD_PARTY_DIR}/assimp)
+
+# main src
+file(GLOB SOFTRENDERER_SRC
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp
+        )
+
+
+add_executable(SoftRenderer
+        "${SOFTRENDERER_SRC}"
+        )
+
+
+if (WIN32)
+    if (MSVC)
+        target_link_libraries(SoftRenderer
+                assimp
+                )
+    else ()
+        target_link_libraries(SoftRenderer
+                assimp
+                )
+    endif ()
+endif ()
+
+if (APPLE)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -framework Cocoa -framework OpenGL -framework IOKit")
+    add_compile_definitions(GL_SILENCE_DEPRECATION)
+    target_link_libraries(SoftRenderer
+            assimp
+            )
+endif ()
+
+
+# output dir
+set(EXECUTABLE_OUTPUT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/bin)
+
+
