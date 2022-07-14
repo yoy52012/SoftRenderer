@@ -11,7 +11,7 @@ namespace SoftRenderer
 		glm::vec2 texcoord;
 		glm::vec3 normal;
 		glm::vec4 tangent;
-		glm::vec4 color = glm::vec4(0.6f,0.6f,0.6f,1.0f);
+		glm::vec4 color;
 
 		Vertex() = default;
 
@@ -35,7 +35,7 @@ namespace SoftRenderer
 		}
 	};
 
-	class Mesh
+	class SubMesh
 	{
 	public:
 		enum  MeshFlags : uint32_t
@@ -47,18 +47,18 @@ namespace SoftRenderer
 			HasColor = 1 << 4,
 		};
 	public:
-		Mesh() = default;
-		~Mesh() = default;
+		SubMesh() = default;
+		~SubMesh() = default;
 
-		Mesh(const std::vector<glm::vec3>& positions, const std::vector<glm::vec3>& normals, const std::vector<glm::vec2>& uvs, const std::vector<int>& indices);
+		SubMesh(const std::vector<glm::vec3>& positions, const std::vector<glm::vec3>& normals, const std::vector<glm::vec2>& uvs, const std::vector<int>& indices);
 
-		Mesh(const Mesh& mesh)
+		SubMesh(const SubMesh& mesh)
 		{
 			this->vertices = mesh.vertices;
 			this->indices = mesh.indices;
 		}
 
-		Mesh& operator=(const Mesh& mesh)
+		SubMesh& operator=(const SubMesh& mesh)
 		{
 			if (&mesh == this) {
 				return *this;
@@ -70,19 +70,19 @@ namespace SoftRenderer
 
 		void addTriangle(const Vertex& v0, const Vertex& v1, const Vertex& v2);
 
-		Mesh& setPositions(const std::vector<glm::vec3>& positions);
-		Mesh& setNormals(const std::vector<glm::vec3>& normals);
-		Mesh& setTangents(const std::vector<glm::vec4>& tangents);
-		Mesh& setColors(const std::vector <glm::vec4>& colors);
-		Mesh& setUvs(const std::vector<glm::vec2>& uvs);
-		Mesh& setIndices(const std::vector<int>& indices);
-		Mesh& build();
+		SubMesh& setPositions(const std::vector<glm::vec3>& positions);
+		SubMesh& setNormals(const std::vector<glm::vec3>& normals);
+		SubMesh& setTangents(const std::vector<glm::vec4>& tangents);
+		SubMesh& setColors(const std::vector <glm::vec4>& colors);
+		SubMesh& setUvs(const std::vector<glm::vec2>& uvs);
+		SubMesh& setIndices(const std::vector<int>& indices);
+		SubMesh& build();
 
-		static Mesh createPlaneMesh();
-		static Mesh createPlaneMesh2();
+		static SubMesh createPlaneMesh();
+		static SubMesh createPlaneMesh2();
 
-		static Mesh createBoxMesh();
-		static Mesh createBoxMesh2();
+		static SubMesh createBoxMesh();
+		static SubMesh createBoxMesh2();
 	
 		std::vector<Vertex> vertices;
 		std::vector<int> indices;
@@ -94,5 +94,11 @@ namespace SoftRenderer
 		std::vector<glm::vec4> colors;
 
 		uint32_t flag = 0;
+	};
+
+	class Mesh
+	{
+	public:
+		std::vector<SubMesh> subMeshs;
 	};
 }

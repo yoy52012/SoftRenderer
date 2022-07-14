@@ -40,4 +40,11 @@ namespace SoftRenderer
 
 	};
 
+	template<typename T>
+	class Texture
+	{
+		public:
+
+	};
+
 }

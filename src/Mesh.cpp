@@ -2,14 +2,14 @@
 
 namespace SoftRenderer
 {
-	Mesh::Mesh(const std::vector<glm::vec3>& positions, const std::vector<glm::vec3>& normals, const std::vector<glm::vec2>& uvs, const std::vector<int>& indices)
+	SubMesh::SubMesh(const std::vector<glm::vec3>& positions, const std::vector<glm::vec3>& normals, const std::vector<glm::vec2>& uvs, const std::vector<int>& indices)
 	{
 		
 
 
 	}
 
-	void Mesh::addTriangle(const Vertex& v0, const Vertex& v1, const Vertex& v2)
+	void SubMesh::addTriangle(const Vertex& v0, const Vertex& v1, const Vertex& v2)
 	{
 		int size = indices.size();
 		vertices.push_back(v0);
@@ -21,51 +21,51 @@ namespace SoftRenderer
 		indices.push_back(size + 2);
 	}
 
-	Mesh& Mesh::setPositions(const std::vector<glm::vec3>& positions)
+	SubMesh& SubMesh::setPositions(const std::vector<glm::vec3>& positions)
 	{
 		this->positions = positions;
 		flag |= MeshFlags::HasPosition;
 		return *this;
 	}
 
-	Mesh& Mesh::setNormals(const std::vector<glm::vec3>& normals)
+	SubMesh& SubMesh::setNormals(const std::vector<glm::vec3>& normals)
 	{
 		this->normals = normals;
 		flag |= MeshFlags::HasNormal;
 		return *this;
 	}
 
-	Mesh& Mesh::setTangents(const std::vector<glm::vec4>& tangents)
+	SubMesh& SubMesh::setTangents(const std::vector<glm::vec4>& tangents)
 	{
 		this->tangents = tangents;
 		flag |= MeshFlags::HasTangent;
 		return *this;
 	}
 
-	Mesh& Mesh::setColors(const std::vector<glm::vec4>& colors)
+	SubMesh& SubMesh::setColors(const std::vector<glm::vec4>& colors)
 	{
 		this->colors = colors;
 		flag |= MeshFlags::HasColor;
 		return *this;
 	}
 
-	Mesh& Mesh::setUvs(const std::vector<glm::vec2>& uvs)
+	SubMesh& SubMesh::setUvs(const std::vector<glm::vec2>& uvs)
 	{
 		this->uvs = uvs;
 		flag |= MeshFlags::HasTexcoord;
 		return *this;
 	}
 
-	Mesh& Mesh::setIndices(const std::vector<int>& indices)
+	SubMesh& SubMesh::setIndices(const std::vector<int>& indices)
 	{
 		this->indices = indices;
 		return *this;
 	}
 
-	Mesh& Mesh::build()
+	SubMesh& SubMesh::build()
 	{
 		if (indices.empty() || positions.empty())
-			return Mesh();
+			return SubMesh();
 
 		for (int i = 0; i < positions.size(); i++)
 		{
@@ -113,7 +113,7 @@ namespace SoftRenderer
 		return *this;
 	}
 
-	Mesh Mesh::createPlaneMesh()
+	SubMesh SubMesh::createPlaneMesh()
 	{
 		glm::vec2 size(2.0f, 2.0f);
 		int subdivide_d = 1;
@@ -185,7 +185,7 @@ namespace SoftRenderer
 			thisrow = point;
 		};
 
-		Mesh mesh;
+		SubMesh mesh;
 		mesh.setPositions(positions)
 			.setUvs(uvs)
 			.setNormals(normals)
@@ -202,7 +202,7 @@ namespace SoftRenderer
 		return mesh;
 	}
 
-	Mesh Mesh::createPlaneMesh2()
+	SubMesh SubMesh::createPlaneMesh2()
 	{
 		int width = 1;
 		int height = 1;
@@ -256,7 +256,7 @@ namespace SoftRenderer
 			}
 		}
 
-		Mesh mesh;
+		SubMesh mesh;
 		mesh.setPositions(positions)
 			.setUvs(uvs)
 			.setNormals(normals)
@@ -266,7 +266,7 @@ namespace SoftRenderer
 		return mesh;
 	}
 
-	Mesh Mesh::createBoxMesh()
+	SubMesh SubMesh::createBoxMesh()
 	{
 		glm::vec3 size(1.0f, 1.0f, 1.0f);
 		int subdivide_h = 1;
@@ -470,13 +470,13 @@ namespace SoftRenderer
 			thisrow = point;
 		};
 
-		Mesh mesh;
+		SubMesh mesh;
 		mesh.vertices = vertices;
 		mesh.indices = indices;
 		return mesh;
 	}
 
-	Mesh Mesh::createBoxMesh2()
+	SubMesh SubMesh::createBoxMesh2()
 	{
 		int width = 1;
 		int height = 1;
@@ -571,7 +571,7 @@ namespace SoftRenderer
 		buildPlane(0, 1, 2, 1, -1, width, height, depth, widthSegments, heightSegments); // pz
 		buildPlane(0, 1, 2, -1, -1, width, height, -depth, widthSegments, heightSegments); // nz
 
-		return Mesh();
+		return SubMesh();
 	}
 }
 
