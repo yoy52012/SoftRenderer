@@ -99,4 +99,62 @@ namespace SoftRenderer
 
 	};
 
+
+	struct BaseShaderAttributes
+	{
+		glm::vec3 aPosition;
+		glm::vec2 aTexcoord;
+		glm::vec3 aNormal;
+		glm::vec3 aTangent;
+	};
+
+	struct BaseShaderUniforms
+	{
+		glm::mat4 uModelMatrix;
+		glm::mat4 uModelViewProjectMatrix;
+
+		glm::vec3 uCameraPostion;
+	};
+
+	struct BaseShaderVaryings
+	{
+
+	};
+
+	struct BaseShader
+	{
+		BaseShaderUniforms* uniforms = nullptr;
+		
+		virtual void main() = 0;
+	};
+
+	struct BaseVertexShader : BaseShader
+	{
+		glm::vec4 gl_Postion;
+
+		BaseShaderAttributes* attributes;
+		BaseShaderVaryings* varyings;
+
+		void main() override
+		{
+			
+		}
+	};
+
+	struct BaseFragmentShader : BaseShader
+	{
+		glm::vec4 gl_FragCoord;
+		bool gl_FrontFacing;
+
+		float gl_FragDepth;
+		glm::vec4 gl_FragColor;
+		
+		BaseShaderVaryings* varyings;
+
+		void main() override
+		{
+			gl_FragDepth = gl_FragCoord.z;
+		}
+	};
+
 }
