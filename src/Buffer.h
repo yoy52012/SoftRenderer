@@ -30,7 +30,7 @@ namespace SoftRenderer
 
         }
 
-        void init(unsigned int width, unsigned int height)
+        void init(int32_t width, int32_t height)
         {
             if (width > 0 && height > 0)
             {
@@ -64,7 +64,7 @@ namespace SoftRenderer
             return mHeight;
         }
 
-        inline T* get(unsigned int x, unsigned int y)
+        inline T* get(int32_t x, int32_t y)
         {
             T* dataPtr = mData.get();
             if (dataPtr != nullptr)
@@ -77,7 +77,7 @@ namespace SoftRenderer
             return nullptr;
         }
 
-        inline void set(unsigned int x, unsigned int y, const T& value)
+        inline void set(int32_t x, int32_t y, const T& value)
         {
             T* dataPtr = mData.get();
             if (dataPtr != nullptr)
@@ -118,32 +118,33 @@ namespace SoftRenderer
         }
 
     private:
-        virtual inline void initSize(unsigned int width, unsigned int height)
+        virtual inline void initSize(int32_t width, int32_t height)
         {
             mDataWidth = width;
             mDataHeight = height;
             mDataSize = mDataWidth * mDataHeight;
         }
 
-        virtual inline unsigned int convertIndex(unsigned int x, unsigned y) const
+        virtual inline unsigned int convertIndex(int32_t x, int32_t y) const
         {
-            y* mWidth + x;
+            y * mWidth + x;
         }
 
 
     private:
-        unsigned int mWidth;
-        unsigned int mHeight;
+        int32_t mWidth;
+        int32_t mHeight;
 
-        unsigned int mDataWidth;
-        unsigned int mDataHeight;
+        int32_t mDataWidth;
+        int32_t mDataHeight;
 
-        unsigned int mDataSize;
+        int32_t mDataSize;
+
         std::shared_ptr<T> mData;
     };
 
 
-    template<T>
+    template<typename T>
     class TiledBuffer : public Buffer<T>
     {
     private:
