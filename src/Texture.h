@@ -60,6 +60,35 @@ namespace SoftRenderer
 		FILTER_LINEAR_MIPMAP_LINEAR,
 	};
 
+	enum PixelFormat
+	{
+		PF_L8,
+		PF_R8,
+        PF_RG88,
+        PF_RGB888,
+        PF_RGBA8888,
+        PF_RGBA4444,
+        PF_RGB565,
+        PF_R32F, //float
+        PF_RG32F,
+        PF_RGB32F,
+        PF_RGBA32F,
+        PF_R16F, //half float
+        PF_RG16F,
+        PF_RGB16F,
+        PF_RGBA16F,
+		PF_MAX
+	};
+
+    enum Interpolation 
+	{
+        INTERPOLATE_NEAREST,
+        INTERPOLATE_BILINEAR,
+        INTERPOLATE_CUBIC,
+        INTERPOLATE_TRILINEAR,
+        INTERPOLATE_LANCZOS,
+    };
+
 	template <int C, class T>
 	static void _scale_nearest(const uint8_t* __restrict src_data, uint8_t* __restrict dst_data, uint32_t src_width, uint32_t src_height, uint32_t dst_width, uint32_t dst_height) 
 	{
@@ -144,21 +173,21 @@ namespace SoftRenderer
 					else if (sizeof(T) == 2) 
 					{ //half float
 
-						float xofs_frac = float(src_xofs_frac) / (1 << FRAC_BITS);
-						float yofs_frac = float(src_yofs_frac) / (1 << FRAC_BITS);
-						const T* src = ((const T*)src_data);
-						T* dst = ((T*)dst_data);
+						//float xofs_frac = float(src_xofs_frac) / (1 << FRAC_BITS);
+						//float yofs_frac = float(src_yofs_frac) / (1 << FRAC_BITS);
+						//const T* src = ((const T*)src_data);
+						//T* dst = ((T*)dst_data);
 
-						float p00 = Math::half_to_float(src[y_ofs_up + src_xofs_left + l]);
-						float p10 = Math::half_to_float(src[y_ofs_up + src_xofs_right + l]);
-						float p01 = Math::half_to_float(src[y_ofs_down + src_xofs_left + l]);
-						float p11 = Math::half_to_float(src[y_ofs_down + src_xofs_right + l]);
+						//float p00 = Math::half_to_float(src[y_ofs_up + src_xofs_left + l]);
+						//float p10 = Math::half_to_float(src[y_ofs_up + src_xofs_right + l]);
+						//float p01 = Math::half_to_float(src[y_ofs_down + src_xofs_left + l]);
+						//float p11 = Math::half_to_float(src[y_ofs_down + src_xofs_right + l]);
 
-						float interp_up = p00 + (p10 - p00) * xofs_frac;
-						float interp_down = p01 + (p11 - p01) * xofs_frac;
-						float interp = interp_up + ((interp_down - interp_up) * yofs_frac);
+						//float interp_up = p00 + (p10 - p00) * xofs_frac;
+						//float interp_down = p01 + (p11 - p01) * xofs_frac;
+						//float interp = interp_up + ((interp_down - interp_up) * yofs_frac);
 
-						dst[i * dst_width * C + j * C + l] = Math::make_half_float(interp);
+						//dst[i * dst_width * C + j * C + l] = Math::make_half_float(interp);
 					}
 					else if (sizeof(T) == 4) 
 					{ //float
@@ -184,20 +213,147 @@ namespace SoftRenderer
 		}
 	}
 
+    static double _bicubic_interp_kernel(double x) 
+	{
+        x = std::abs(x);
+        double bc = 0;
+
+        if (x <= 1) 
+		{
+            bc = (1.5 * x - 2.5) * x * x + 1;
+        }
+        else if (x < 2) 
+		{
+            bc = ((-0.5 * x + 2.5) * x - 4) * x + 2;
+        }
+
+        return bc;
+    }
+
+    template <int C, class T>
+    static void _scale_cubic(const uint8_t* __restrict src_data, uint8_t* __restrict dst_data, uint32_t src_width, uint32_t src_height, uint32_t dst_width, uint32_t dst_height) 
+	{
+        // get source image size
+        int width = src_width;
+        int height = src_height;
+        double xfac = (double)width / dst_width;
+        double yfac = (double)height / dst_height;
+
+        // coordinates of source points and coefficients
+        double ox, oy, dx, dy, k1, k2;
+        int ox1, oy1, ox2, oy2;
+        
+		// destination pixel values
+        // width and height decreased by 1
+        int ymax = height - 1;
+        int xmax = width - 1;
+        
+		// temporary pointer
+
+        for (uint32_t y = 0; y < dst_height; y++) 
+		{
+            // Y coordinates
+            oy = (double)y * yfac - 0.5f;
+            oy1 = (int)oy;
+            dy = oy - (double)oy1;
+
+            for (uint32_t x = 0; x < dst_width; x++) 
+			{
+                // X coordinates
+                ox = (double)x * xfac - 0.5f;
+                ox1 = (int)ox;
+                dx = ox - (double)ox1;
+
+                // initial pixel value
+                T* __restrict dst = ((T*)dst_data) + (y * dst_width + x) * C;
+
+                double color[C];
+                for (int i = 0; i < C; i++) 
+				{
+                    color[i] = 0;
+                }
+
+                for (int n = -1; n < 3; n++) 
+				{
+                    // get Y coefficient
+                    k1 = _bicubic_interp_kernel(dy - (double)n);
+
+                    oy2 = oy1 + n;
+                    if (oy2 < 0) 
+					{
+                        oy2 = 0;
+                    }
+                    if (oy2 > ymax) 
+					{
+                        oy2 = ymax;
+                    }
+
+                    for (int m = -1; m < 3; m++) 
+					{
+                        // get X coefficient
+                        k2 = k1 * _bicubic_interp_kernel((double)m - dx);
+
+                        ox2 = ox1 + m;
+                        if (ox2 < 0) 
+						{
+                            ox2 = 0;
+                        }
+                        if (ox2 > xmax) 
+						{
+                            ox2 = xmax;
+                        }
+
+                        // get pixel of original image
+                        const T* __restrict p = ((T*)src_data) + (oy2 * src_width + ox2) * C;
+
+                        for (int i = 0; i < C; i++) 
+						{
+                            if (sizeof(T) == 2) { //half float
+                                //color[i] = Math::half_to_float(p[i]);
+                            }
+                            else {
+                                color[i] += p[i] * k2;
+                            }
+                        }
+                    }
+                }
+
+                for (int i = 0; i < C; i++) {
+                    if (sizeof(T) == 1) { //byte
+                        dst[i] = clamp(std::round(color[i]), 0, 255);
+                    }
+                    else if (sizeof(T) == 2) { //half float
+                        //dst[i] = Math::make_half_float(color[i]);
+                    }
+                    else {
+                        dst[i] = color[i];
+                    }
+                }
+            }
+        }
+    }
+
 	#define LANCZOS_TYPE 3
+    #define Math_PI 3.1415926535897932384626433833
+
+	template<typename T>
+    static T sinc(T p_x)   { return p_x == 0 ? 1 : std::sin(p_x) / p_x; }
+
+	template<typename T>
+    static T sincn(T p_x) { return sinc((T)Math_PI * p_x); }
+
+    template <typename T>
+	T clamp(const T& n, const T& lower, const T& upper) {
+        return std::max(lower, std::min(n, upper));
+    }
 
 	template <int C, class T>
-	static void _scale_lanczos(const uint8_t* __restrict p_src, uint8_t* __restrict p_dst, uint32_t p_src_width, uint32_t p_src_height, uint32_t p_dst_width, uint32_t p_dst_height) 
+	static void _scale_lanczos(const uint8_t* __restrict src_data, uint8_t* __restrict dst_data, uint32_t src_width, uint32_t src_height, uint32_t dst_width, uint32_t dst_height) 
 	{
 		auto lanczos = [](float p_x) 
-		{
-			return Math::abs(p_x) >= LANCZOS_TYPE ? 0 : Math::sincn(p_x) * Math::sincn(p_x / LANCZOS_TYPE);
+		{	
+			return Math::abs(p_x) >= LANCZOS_TYPE ? 0 : sincn(p_x) * sincn(p_x / LANCZOS_TYPE);
 		};
-
-		int32_t src_width  = p_src_width;
-		int32_t src_height = p_src_height;
-		int32_t dst_height = p_dst_height;
-		int32_t dst_width  = p_dst_width;
 
 		uint32_t buffer_size = src_height * dst_width * C;
 		float* buffer = new float[buffer_size]; // Store the first pass in a buffer 
@@ -234,12 +390,12 @@ namespace SoftRenderer
 						float lanczos_val = kernel[target_x - start_x];
 						weight += lanczos_val;
 
-						const T* __restrict src_data = ((const T*)p_src) + (buffer_y * src_width + target_x) * C;
+						const T* __restrict src_data = ((const T*)src_data) + (buffer_y * src_width + target_x) * C;
 
 						for (uint32_t i = 0; i < C; i++) 
 						{
 							if (sizeof(T) == 2) { //half float
-								pixel[i] += Math::half_to_float(src_data[i]) * lanczos_val;
+								//pixel[i] += Math::half_to_float(src_data[i]) * lanczos_val;
 							}
 							else 
 							{
@@ -262,7 +418,6 @@ namespace SoftRenderer
 
 		// SECOND PASS (vertical + result)
 		{ 
-
 			float y_scale = float(src_height) / float(dst_height);
 
 			float scale_factor = std::max(y_scale, 1);
@@ -276,7 +431,7 @@ namespace SoftRenderer
 				int32_t start_y = std::max(0, int32_t(buffer_y) - half_kernel + 1);
 				int32_t end_y = std::min(src_height - 1, int32_t(buffer_y) + half_kernel);
 
-				for (int32_t target_y = start_y; target_y <= end_y; target_y++) 
+				for (int32_t target_y = start_y; target_y <= end_y; target_y++) src_data
 				{
 					kernel[target_y - start_y] = lanczos((target_y + 0.5f - buffer_y) / scale_factor);
 				}
@@ -299,7 +454,7 @@ namespace SoftRenderer
 						}
 					}
 
-					T* dst_data = ((T*)p_dst) + (dst_y * dst_width + dst_x) * C;
+					T* dst_data = ((T*)dst_data) + (dst_y * dst_width + dst_x) * C;
 
 					for (uint32_t i = 0; i < C; i++) 
 					{
@@ -307,11 +462,11 @@ namespace SoftRenderer
 
 						if (sizeof(T) == 1) //byte
 						{   
-							dst_data[i] = CLAMP(Math::fast_ftoi(pixel[i]), 0, 255);
+							dst_data[i] = clamp(std::round(pixel[i]), 0, 255);
 						}
 						else if (sizeof(T) == 2) //half float
 						{ 
-							dst_data[i] = Math::make_half_float(pixel[i]);
+							//dst_data[i] = Math::make_half_float(pixel[i]);
 						}
 						else // float
 						{ 
@@ -329,20 +484,39 @@ namespace SoftRenderer
 
 
 
-	template<typename T>
 	class Texture
 	{
 	public:
 
+		int32_t getWidth() const;
+
+		int32_t getHeight() const;
+
+		PixelFormat getFormat() const;
+
+		bool hasMipmaps() const;
+
 	private:
 		void generateMipmaps();
+
+		int32_t getPixelFormatByteSize(PixelFormat format);
+
+		int32_t getImageByteSize(int32_t width, int32_t height, PixelFormat format, int32_t& mipmapCount, int32_t targetMipmaps = -1);
 
 
 	private:
 		
+		std::shared_ptr<Buffer<uint8_t>> mData;
 
-		std::shared_ptr<Buffer<glm::tvec4<T>>> mDataBuffer;
-		std::vector<std::shared_ptr<Buffer<glm::tvec4<T>>>> mMipmaps;
+		PixelFormat mFormat;
+
+		int32_t mWidth;
+
+		int32_t mHeight;
+
+		bool mHashMipmaps;
+
+		std::vector<std::shared_ptr<Buffer<uint8_t>>> mMipmaps;
 	};
 
 	template<typename T>
@@ -392,6 +566,95 @@ namespace SoftRenderer
 		Buffer<glm::tvec4<T>>* levelBuffer = mMipmaps.back().get();
 		levelBuffer->init(levelSize, levelSize);
 
+	}
+
+    inline int32_t Texture::getPixelFormatByteSize(PixelFormat format)
+    {
+		switch (format)
+		{
+		case PF_L8:
+			return 1;
+		case PF_R8:
+			return 1;
+		case PF_RG88:
+			return 2;
+		case PF_RGB888:
+			return 3;
+		case PF_RGBA8888:
+			return 4;
+		case PF_RGBA4444:
+			return 2;
+		case PF_RGB565:
+			return 2;
+		case PF_R32F:
+			return 4;
+		case PF_RG32F:
+			return 8;
+		case PF_RGB32F:
+			return 12;
+		case PF_RGBA32F:
+			return 16;
+		case PF_R16F:
+			return 2; 
+		case PF_RG16F:
+			return 4;
+		case PF_RGB16F:
+			return 8;
+		case PF_RGBA16F:
+			return 8;
+		default:
+			break;
+		}
+		return 0;
+    }
+
+	inline int32_t Texture::getImageByteSize(int32_t width, int32_t height, PixelFormat format, int32_t& mipmapCount ,int32_t targetMipmaps)
+	{
+		int32_t size = 0;
+
+		int32_t w = width;
+		int32_t h = height;
+
+        // Current mipmap index in the loop below. p_mipmaps is the target mipmap index.
+		// In this function, mipmap 0 represents the first mipmap instead of the original texture.
+        int32_t mm = 0;
+
+		const int32_t pixelSize = getPixelFormatByteSize(format);
+
+		const int32_t minWidth = 1;
+		const int32_t minHeight= 1;
+
+		while (true)
+		{
+            int32_t byteSize = w * h * pixelSize;
+
+            size += byteSize;
+
+            if (targetMipmaps >= 0)
+			{
+                w = std::max(minWidth, w >> 1);
+                h = std::max(minHeight, h >> 1);
+            }
+            else 
+			{
+                if (w == minWidth && h == minHeight)
+				{
+                    break;
+                }
+                w = std::max(minWidth, w >> 1);
+                h = std::max(minHeight, h >> 1);
+            }
+
+            if (targetMipmaps >= 0 && mm == targetMipmaps)
+			{
+                break;
+            }
+
+            mm++;
+		}
+
+		mipmapCount = mm;
+        return size;
 	}
 
 	template<typename T>
