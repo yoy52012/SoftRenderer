@@ -158,7 +158,7 @@ namespace SoftRenderer
 				for (uint32_t l = 0; l < C; l++) 
 				{
 					if (sizeof(T) == 1) 
-					{ //uint8
+					{   //uint8
 						uint32_t p00 = src_data[y_ofs_up + src_xofs_left + l] << FRAC_BITS;
 						uint32_t p10 = src_data[y_ofs_up + src_xofs_right + l] << FRAC_BITS;
 						uint32_t p01 = src_data[y_ofs_down + src_xofs_left + l] << FRAC_BITS;
@@ -171,7 +171,7 @@ namespace SoftRenderer
 						dst_data[i * dst_width * C + j * C + l] = uint8_t(interp);
 					}
 					else if (sizeof(T) == 2) 
-					{ //half float
+					{   //half float
 
 						//float xofs_frac = float(src_xofs_frac) / (1 << FRAC_BITS);
 						//float yofs_frac = float(src_yofs_frac) / (1 << FRAC_BITS);
@@ -499,9 +499,11 @@ namespace SoftRenderer
 	private:
 		void generateMipmaps();
 
-		int32_t getPixelFormatByteSize(PixelFormat format);
+		int32_t getPixelFormatByteSize(PixelFormat format) const;
 
-		int32_t getImageByteSize(int32_t width, int32_t height, PixelFormat format, int32_t& mipmapCount, int32_t targetMipmaps = -1);
+		int32_t getImageByteSize(int32_t width, int32_t height, PixelFormat format, int32_t& mipmapCount, int32_t targetMipmaps = -1) const;
+
+		void Texture::getMipmapOffsetAndSize(int32_t mipmap, int32_t& offset, int32_t& width, int32_t& height) const;
 
 
 	private:
@@ -568,7 +570,7 @@ namespace SoftRenderer
 
 	}
 
-    inline int32_t Texture::getPixelFormatByteSize(PixelFormat format)
+    inline int32_t Texture::getPixelFormatByteSize(PixelFormat format) const
     {
 		switch (format)
 		{
@@ -608,7 +610,7 @@ namespace SoftRenderer
 		return 0;
     }
 
-	inline int32_t Texture::getImageByteSize(int32_t width, int32_t height, PixelFormat format, int32_t& mipmapCount ,int32_t targetMipmaps)
+	inline int32_t Texture::getImageByteSize(int32_t width, int32_t height, PixelFormat format, int32_t& mipmapCount ,int32_t targetMipmaps) const
 	{
 		int32_t size = 0;
 
@@ -619,14 +621,14 @@ namespace SoftRenderer
 		// In this function, mipmap 0 represents the first mipmap instead of the original texture.
         int32_t mm = 0;
 
-		const int32_t pixelSize = getPixelFormatByteSize(format);
+		const int32_t pixelByteSize = getPixelFormatByteSize(format);
 
 		const int32_t minWidth = 1;
 		const int32_t minHeight= 1;
 
 		while (true)
 		{
-            int32_t byteSize = w * h * pixelSize;
+            int32_t byteSize = w * h * pixelByteSize;
 
             size += byteSize;
 
@@ -655,6 +657,66 @@ namespace SoftRenderer
 
 		mipmapCount = mm;
         return size;
+	}
+
+	void Texture::getMipmapOffsetAndSize(int32_t mipmap, int32_t& offset, int32_t& width, int32_t& height) const
+	{
+		int32_t w = width;
+		int32_t h = height;
+		int32_t ofs = 0;
+
+		const int32_t pixelByteSize = getPixelFormatByteSize(mFormat);
+		
+		const int32_t minWidth = 1,
+		const int32_t minHeight = 1;;
+
+		for (int32_t i = 0; i < mipmap; i++) 
+		{
+			int32_t byteSize = w * h * pixelByteSize;
+
+			ofs += byteSize;
+
+			w = std::max(minWidth, w >> 1);
+			h = std::max(minHeight, h >> 1);
+		}
+
+		offset = ofs;
+		width  = w;
+		height = h;
+	}
+
+	template <class Component, int CC, bool renormalize,
+		void (*average_func)(Component&, const Component&, const Component&, const Component&, const Component&),
+		void (*renormalize_func)(Component*)>
+		static void _generate_po2_mipmap(const Component* p_src, Component* p_dst, uint32_t p_width, uint32_t p_height) {
+		//fast power of 2 mipmap generation
+		uint32_t dst_w = MAX(p_width >> 1, 1u);
+		uint32_t dst_h = MAX(p_height >> 1, 1u);
+
+		int right_step = (p_width == 1) ? 0 : CC;
+		int down_step = (p_height == 1) ? 0 : (p_width * CC);
+
+		for (uint32_t i = 0; i < dst_h; i++) {
+			const Component* rup_ptr = &p_src[i * 2 * down_step];
+			const Component* rdown_ptr = rup_ptr + down_step;
+			Component* dst_ptr = &p_dst[i * dst_w * CC];
+			uint32_t count = dst_w;
+
+			while (count) {
+				count--;
+				for (int j = 0; j < CC; j++) {
+					average_func(dst_ptr[j], rup_ptr[j], rup_ptr[j + right_step], rdown_ptr[j], rdown_ptr[j + right_step]);
+				}
+
+				if (renormalize) {
+					renormalize_func(dst_ptr);
+				}
+
+				dst_ptr += CC;
+				rup_ptr += right_step * 2;
+				rdown_ptr += right_step * 2;
+			}
+		}
 	}
 
 	template<typename T>
