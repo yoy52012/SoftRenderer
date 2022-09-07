@@ -3,6 +3,11 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <utility>
+#include <functional>
+#include <atomic>
+#include <thread>
+
 #include <glm/glm.hpp>
 
 #include "Image.h"
@@ -11,6 +16,25 @@
 
 namespace SoftRenderer
 {
+	enum TextureType {
+		TextureType_NONE = 0,
+		TextureType_DIFFUSE,
+		TextureType_NORMALS,
+		TextureType_EMISSIVE,
+		TextureType_PBR_ALBEDO,
+		TextureType_PBR_METAL_ROUGHNESS,
+		TextureType_PBR_AMBIENT_OCCLUSION,
+
+		TextureType_CUBE_MAP_POSITIVE_X,
+		TextureType_CUBE_MAP_NEGATIVE_X,
+		TextureType_CUBE_MAP_POSITIVE_Y,
+		TextureType_CUBE_MAP_NEGATIVE_Y,
+		TextureType_CUBE_MAP_POSITIVE_Z,
+		TextureType_CUBE_MAP_NEGATIVE_Z,
+
+		TextureType_EQUIRECTANGULAR,
+	};
+
 	class Texture2D
 	{
 	public:
@@ -483,55 +507,181 @@ namespace SoftRenderer
 	}
 
 
-
+	template<typename T>
 	class Texture
 	{
 	public:
 
-		int32_t getWidth() const;
+		//int32_t getWidth() const;
 
-		int32_t getHeight() const;
+		//int32_t getHeight() const;
 
-		PixelFormat getFormat() const;
+		//PixelFormat getFormat() const;
 
-		bool hasMipmaps() const;
+		//bool hasMipmaps() const;
+
+		//int32_t getMipmapCount() const;
+
+		//int32_t getMipmapOffset(int32_t mipmap) const;
+
+		//int32_t getMipmapByteSize(int32_t mipmap) const;
+
+		//std::pair<int32_t, int32_t> getMipmapOffsetAndByteSize(int32_t mipmap) const;
+
+		Texture& operator=(const Texture& other) 
+		{
+			if (this != &other)
+			{
+				mType = other.mType;
+				mBuffer = other.mBuffer;
+				mMipmaps = other.mMipmaps;
+				mMipmapReadyFlag = other.mMipmapReadyFlag;
+				mMipmapGeneratingFlag = other.mMipmapGeneratingFlag;
+			}
+			return *this;
+		}
+
+		virtual ~Texture() 
+		{
+			if (mMipmapThread) 
+			{
+				mMipmapThread->join();
+			}
+		}
+
+		static int roundupPowerOf2(int n) 
+		{
+			static const int max = 1 << 30;
+			n -= 1;
+			n |= n >> 1;
+			n |= n >> 2;
+			n |= n >> 4;
+			n |= n >> 8;
+			n |= n >> 16;
+			return n < 0 ? 1 : (n >= max ? max : n + 1);
+		}
+
+		void reset() 
+		{
+			mType = TextureType_NONE;
+			mBuffer = nullptr;
+			mMipmaps.clear();
+			mMipmapReadyFlag = false;
+			mMipmapGeneratingFlag = false;
+		}
+
+		bool IsMipmapsReady() 
+		{
+			return mMipmapReadyFlag;
+		}
+
+		void SetMipmapsReady(bool ready) 
+		{
+			mMipmapReadyFlag = ready;
+		}
+
+		static std::shared_ptr<Buffer<glm::tvec4<T>>> CreateBufferDefault() 
+		{
+			return std::make_shared<Buffer<glm::tvec4<T>>>();
+		}
+
+		static std::shared_ptr<Buffer<glm::tvec4<T>>> CreateBuffer()
+		{
+			return std::make_shared<Buffer<glm::tvec4<T>>>();
+		}
+
+		void GenerateMipmaps();
+
+
 
 	private:
-		void generateMipmaps();
+		//void generateMipmaps();
 
-		int32_t getPixelFormatByteSize(PixelFormat format) const;
+		//int32_t getPixelFormatByteSize(PixelFormat format) const;
 
-		int32_t getImageByteSize(int32_t width, int32_t height, PixelFormat format, int32_t& mipmapCount, int32_t targetMipmaps = -1) const;
+		//int32_t getByteSize(int32_t width, int32_t height, PixelFormat format, int32_t& mipmapCount, int32_t targetMipmaps = -1) const;
 
-		void Texture::getMipmapOffsetAndSize(int32_t mipmap, int32_t& offset, int32_t& width, int32_t& height) const;
+		//void getMipmapOffsetAndWidthHeight(int32_t mipmap, int32_t& offset, int32_t& width, int32_t& height) const;
 
+	public:
+		TextureType mType = TextureType::TextureType_NONE;
+		std::shared_ptr<Buffer<glm::tvec4<T>>> mBuffer = nullptr;
+		std::vector<std::shared_ptr<Buffer<glm::tvec4<T>>>>  mMipmaps = nullptr;
 
 	private:
 		
-		std::shared_ptr<Buffer<uint8_t>> mData;
+		//std::shared_ptr<Buffer<uint8_t>> mData;
 
-		PixelFormat mFormat;
+		//PixelFormat mFormat;
 
-		int32_t mWidth;
+		//int32_t mWidth;
 
-		int32_t mHeight;
+		//int32_t mHeight;
 
-		bool mHashMipmaps;
+		//bool mHashMipmaps;
 
-		std::vector<std::shared_ptr<Buffer<uint8_t>>> mMipmaps;
+		//std::vector<std::shared_ptr<Buffer<uint8_t>>> mMipmaps;
+
+		std::atomic<bool> mMipmapReadyFlag = false;
+		std::atomic<bool> mMipmapGeneratingFlag = false;
+		std::shared_ptr<std::thread> mMipmapThread = nullptr;
+
+	};
+
+	enum WrapMode 
+	{
+		Wrap_REPEAT,
+		Wrap_MIRRORED_REPEAT,
+		Wrap_CLAMP_TO_EDGE,
+		Wrap_CLAMP_TO_BORDER,
+		Wrap_CLAMP_TO_ZERO,
+	};
+
+	enum FilterMode 
+	{
+		Filter_NEAREST,
+		Filter_LINEAR,
+		Filter_NEAREST_MIPMAP_NEAREST,
+		Filter_LINEAR_MIPMAP_NEAREST,
+		Filter_NEAREST_MIPMAP_LINEAR,
+		Filter_LINEAR_MIPMAP_LINEAR,
 	};
 
 	template<typename T>
 	class Sampler
 	{
 	public:
+
+		inline int32_t getWidth() const { return mWidth; }
+		inline int32_t getHeight() const { return mHeight; }
+
 		
+		inline void setWrapMode(WrapMode wrapMode)
+		{
+			mWrapMode = wrapMode
+		}
+
+		inline void setFilterMode(FilterMode filterMode)
+		{
+			mFilterMode = filterMode;
+		}
+
 		static glm::tvec4<T> sampleNearest(const Buffer<glm::tvec4<T>>& buffer, const glm::vec2& uv, WrapMode wrapMode, const glm::ivec2& offset);
 
 		static glm::tvec4<T> sampleBilinear(const Buffer<glm::tvec4<T>>& buffer, const glm::vec2& uv, WrapMode wrapMode, const glm::ivec2& offset);
 
 		static glm::tvec4<T> sampleWithWrapMode(const Buffer<glm::tvec4<T>>& buffer, int32_t x, int32_t y, WrapMode wrapMode);
 
+	public:
+		static const glm::tvec4<T> BORDER_COLOR;
+
+	protected:
+		std::function<float(BaseSampler<T>&)>* lod_func_ = nullptr;
+		bool use_mipmaps = false;
+		int32_t mWidth = 0;
+		int32_t mHeight = 0;
+		WrapMode mWrapMode = Wrap_REPEAT;
+		FilterMode mFilterMode = Filter_LINEAR;
 	};
 
 	// Find the first greater number which equals to 2^n, from jdk1.7
@@ -547,26 +697,124 @@ namespace SoftRenderer
 		return n < 0 ? 1 : (n >= max ? max : n + 1);
 	}
 
-	template<typename T>
-	void Texture<T>::generateMipmaps()
+	void Texture::generateMipmaps()
 	{
-		if (mipmaps_ready_ || mipmaps_generating_) 
-		{
-			return;
+		const int32_t width  = mWidth;
+		const int32_t height = mHeight;
+		const PixelFormat format = mFormat;
+
+		int32_t mmcount;
+
+		int32_t size = getByteSize(width, height, format, mmcount);
+
+		data.resize(size);
+
+		uint8_t* wp = data.ptrw();
+
+		int prev_ofs = 0;
+		int prev_h = height;
+		int prev_w = width;
+
+		for (int i = 1; i <= mmcount; i++) {
+			int32_t offset, w, h;
+			getMipmapOffsetAndSize(i, offset, w, h);
+
+			switch (format) 
+			{
+			case FORMAT_L8:
+			case FORMAT_R8:
+				_generate_po2_mipmap<uint8_t, 1, false, Image::average_4_uint8, Image::renormalize_uint8>(&wp[prev_ofs], &wp[ofs], prev_w, prev_h);
+				break;
+			case FORMAT_LA8:
+			case FORMAT_RG8:
+				_generate_po2_mipmap<uint8_t, 2, false, Image::average_4_uint8, Image::renormalize_uint8>(&wp[prev_ofs], &wp[ofs], prev_w, prev_h);
+				break;
+			case FORMAT_RGB8:
+				if (p_renormalize) {
+					_generate_po2_mipmap<uint8_t, 3, true, Image::average_4_uint8, Image::renormalize_uint8>(&wp[prev_ofs], &wp[ofs], prev_w, prev_h);
+				}
+				else {
+					_generate_po2_mipmap<uint8_t, 3, false, Image::average_4_uint8, Image::renormalize_uint8>(&wp[prev_ofs], &wp[ofs], prev_w, prev_h);
+				}
+
+				break;
+			case FORMAT_RGBA8:
+				if (p_renormalize) {
+					_generate_po2_mipmap<uint8_t, 4, true, Image::average_4_uint8, Image::renormalize_uint8>(&wp[prev_ofs], &wp[ofs], prev_w, prev_h);
+				}
+				else {
+					_generate_po2_mipmap<uint8_t, 4, false, Image::average_4_uint8, Image::renormalize_uint8>(&wp[prev_ofs], &wp[ofs], prev_w, prev_h);
+				}
+				break;
+			case FORMAT_RF:
+				_generate_po2_mipmap<float, 1, false, Image::average_4_float, Image::renormalize_float>(reinterpret_cast<const float*>(&wp[prev_ofs]), reinterpret_cast<float*>(&wp[ofs]), prev_w, prev_h);
+				break;
+			case FORMAT_RGF:
+				_generate_po2_mipmap<float, 2, false, Image::average_4_float, Image::renormalize_float>(reinterpret_cast<const float*>(&wp[prev_ofs]), reinterpret_cast<float*>(&wp[ofs]), prev_w, prev_h);
+				break;
+			case FORMAT_RGBF:
+				if (p_renormalize) {
+					_generate_po2_mipmap<float, 3, true, Image::average_4_float, Image::renormalize_float>(reinterpret_cast<const float*>(&wp[prev_ofs]), reinterpret_cast<float*>(&wp[ofs]), prev_w, prev_h);
+				}
+				else {
+					_generate_po2_mipmap<float, 3, false, Image::average_4_float, Image::renormalize_float>(reinterpret_cast<const float*>(&wp[prev_ofs]), reinterpret_cast<float*>(&wp[ofs]), prev_w, prev_h);
+				}
+
+				break;
+			case FORMAT_RGBAF:
+				if (p_renormalize) {
+					_generate_po2_mipmap<float, 4, true, Image::average_4_float, Image::renormalize_float>(reinterpret_cast<const float*>(&wp[prev_ofs]), reinterpret_cast<float*>(&wp[ofs]), prev_w, prev_h);
+				}
+				else {
+					_generate_po2_mipmap<float, 4, false, Image::average_4_float, Image::renormalize_float>(reinterpret_cast<const float*>(&wp[prev_ofs]), reinterpret_cast<float*>(&wp[ofs]), prev_w, prev_h);
+				}
+
+				break;
+			case FORMAT_RH:
+				_generate_po2_mipmap<uint16_t, 1, false, Image::average_4_half, Image::renormalize_half>(reinterpret_cast<const uint16_t*>(&wp[prev_ofs]), reinterpret_cast<uint16_t*>(&wp[ofs]), prev_w, prev_h);
+				break;
+			case FORMAT_RGH:
+				_generate_po2_mipmap<uint16_t, 2, false, Image::average_4_half, Image::renormalize_half>(reinterpret_cast<const uint16_t*>(&wp[prev_ofs]), reinterpret_cast<uint16_t*>(&wp[ofs]), prev_w, prev_h);
+				break;
+			case FORMAT_RGBH:
+				if (p_renormalize) {
+					_generate_po2_mipmap<uint16_t, 3, true, Image::average_4_half, Image::renormalize_half>(reinterpret_cast<const uint16_t*>(&wp[prev_ofs]), reinterpret_cast<uint16_t*>(&wp[ofs]), prev_w, prev_h);
+				}
+				else {
+					_generate_po2_mipmap<uint16_t, 3, false, Image::average_4_half, Image::renormalize_half>(reinterpret_cast<const uint16_t*>(&wp[prev_ofs]), reinterpret_cast<uint16_t*>(&wp[ofs]), prev_w, prev_h);
+				}
+
+				break;
+			case FORMAT_RGBAH:
+				if (p_renormalize) {
+					_generate_po2_mipmap<uint16_t, 4, true, Image::average_4_half, Image::renormalize_half>(reinterpret_cast<const uint16_t*>(&wp[prev_ofs]), reinterpret_cast<uint16_t*>(&wp[ofs]), prev_w, prev_h);
+				}
+				else {
+					_generate_po2_mipmap<uint16_t, 4, false, Image::average_4_half, Image::renormalize_half>(reinterpret_cast<const uint16_t*>(&wp[prev_ofs]), reinterpret_cast<uint16_t*>(&wp[ofs]), prev_w, prev_h);
+				}
+
+				break;
+			case FORMAT_RGBE9995:
+				if (p_renormalize) {
+					_generate_po2_mipmap<uint32_t, 1, true, Image::average_4_rgbe9995, Image::renormalize_rgbe9995>(reinterpret_cast<const uint32_t*>(&wp[prev_ofs]), reinterpret_cast<uint32_t*>(&wp[ofs]), prev_w, prev_h);
+				}
+				else {
+					_generate_po2_mipmap<uint32_t, 1, false, Image::average_4_rgbe9995, Image::renormalize_rgbe9995>(reinterpret_cast<const uint32_t*>(&wp[prev_ofs]), reinterpret_cast<uint32_t*>(&wp[ofs]), prev_w, prev_h);
+				}
+
+				break;
+			default: {
+			}
+			}
+
+			prev_ofs = ofs;
+			prev_w = w;
+			prev_h = h;
 		}
 
-		mMipmaps.clear();
+		mipmaps = true;
 
-		int width = (int)buffer->GetWidth();
-		int height = (int)buffer->GetHeight();
-
-		
-		int levelSize = std::max(roundUpToPowerOf2(width), roundUpToPowerOf2(height));
-
-		mMipmaps.emplace_back(Buffer<glm::tvec4<T>>::create());
-
-		Buffer<glm::tvec4<T>>* levelBuffer = mMipmaps.back().get();
-		levelBuffer->init(levelSize, levelSize);
+		return OK;
 
 	}
 
@@ -610,10 +858,9 @@ namespace SoftRenderer
 		return 0;
     }
 
-	inline int32_t Texture::getImageByteSize(int32_t width, int32_t height, PixelFormat format, int32_t& mipmapCount ,int32_t targetMipmaps) const
+	int32_t Texture::getByteSize(int32_t width, int32_t height, PixelFormat format, int32_t& mipmapCount, int32_t targetMipmaps) const
 	{
 		int32_t size = 0;
-
 		int32_t w = width;
 		int32_t h = height;
 
@@ -659,7 +906,7 @@ namespace SoftRenderer
         return size;
 	}
 
-	void Texture::getMipmapOffsetAndSize(int32_t mipmap, int32_t& offset, int32_t& width, int32_t& height) const
+	void Texture::getMipmapOffsetAndWidthHeight(int32_t mipmap, int32_t& offset, int32_t& width, int32_t& height) const
 	{
 		int32_t w = width;
 		int32_t h = height;
@@ -684,6 +931,64 @@ namespace SoftRenderer
 		width  = w;
 		height = h;
 	}
+
+	int32_t Texture::getMipmapOffset(int32_t mipmap) const
+	{
+		if (mipmap < 0 || mipmap >= getMipmapCount() + 1)
+		{
+			std::cerr << "Input mipmap's value is invalid"  << std::endl;
+			return -1;
+		}
+
+		int32_t offset, width, height;
+		getMipmapOffsetAndWidthHeight(mipmap, offset, width, height);
+		return offset;
+	}
+
+	int32_t Texture::getMipmapByteSize(int32_t mipmap) const
+	{
+		if (mipmap < 0 || mipmap >= getMipmapCount() + 1)
+		{
+			std::cerr << "Input mipmap's value is invalid" << std::endl;
+			return -1;
+		}
+
+		int32_t offset, width, height;
+		getMipmapOffsetAndWidthHeight(mipmap, offset, width, height);
+		int32_t offset2;
+		getMipmapOffsetAndWidthHeight(mipmap + 1, offset2, width, height);
+		return offset2 - offset;
+	}
+
+	std::pair<int32_t, int32_t> Texture::getMipmapOffsetAndByteSize(int32_t mipmap) const
+	{
+		if (mipmap < 0 || mipmap >= getMipmapCount() + 1)
+		{
+			std::cerr << "Input mipmap's value is invalid" << std::endl;
+			return;
+		}
+
+		int32_t offset, width, height;
+		getMipmapOffsetAndWidthHeight(mipmap, offset, width, height);
+		int32_t offset2;
+		getMipmapOffsetAndWidthHeight(mipmap + 1, offset2, width, height);
+		int32_t size = offset2 - offset;
+		return std::make_pair(offset, size);
+	}
+
+	int32_t Texture::getMipmapCount() const 
+	{
+		if (mipmaps) 
+		{
+			return get_image_required_mipmaps(width, height, format);
+		}
+		else 
+		{
+			return 0;
+		}
+	}
+
+
 
 	template <class Component, int CC, bool renormalize,
 		void (*average_func)(Component&, const Component&, const Component&, const Component&, const Component&),
@@ -717,6 +1022,66 @@ namespace SoftRenderer
 				rdown_ptr += right_step * 2;
 			}
 		}
+	}
+
+
+	template<typename T>
+	void Texture<T>::GenerateMipmaps() 
+	{
+		if (mMipmapReadyFlag || mMipmapGeneratingFlag) 
+		{
+			return;
+		}
+
+		//mMipmapThread = std::make_shared<std::thread>([&]() 
+		
+		{
+			mMipmapGeneratingFlag = true;
+
+			mMipmaps.clear();
+
+			const int32_t originWidth = (int32_t)mBuffer->GetWidth();
+			const int32_t originHeight = (int32_t)mBuffer->GetHeight();
+
+			// alloc memory for mip 0
+			int32_t mipSize = std::max(roundupPowerOf2(originWidth), roundupPowerOf2(originHeight));
+			mMipmaps.push_back(Texture<T>::CreateBuffer());
+			
+			Buffer<glm::tvec4<T>>* mipBuffer = mMipmaps.back().get();
+
+			Buffer<glm::tvec4<T>>* level_buffer_from = mBuffer.get();
+
+			mipBuffer->Create(mipSize, mipSize);
+
+			if (mipSize == level_buffer_from->GetWidth() && mipSize == level_buffer_from->GetHeight()) 
+			{
+				level_buffer_from->CopyRawDataTo(mipBuffer->GetRawDataPtr());
+			}
+			else 
+			{
+				Sampler<T>::SampleBufferBilinear(mipBuffer, level_buffer_from);
+			}
+
+			// other levels
+			while (mipSize >= 2) 
+			{
+				mipSize /= 2;
+
+				mMipmaps.push_back(Texture<T>::CreateBuffer());
+
+				mipBuffer = mipmaps.back().get();
+
+				level_buffer_from = mMipmaps[mMipmaps.size() - 2].get();
+				
+				mipBuffer->Create(mipSize, mipSize);
+
+				Sampler<T>::SampleBufferBilinear(mipBuffer, level_buffer_from);
+			}
+
+			mMipmapGeneratingFlag = false;
+			mMipmapReadyFlag = true;
+		}
+			//});
 	}
 
 	template<typename T>
