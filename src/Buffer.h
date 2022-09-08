@@ -9,28 +9,35 @@ namespace SoftRenderer
     {
     public:
 
-        static std::shared_ptr<Buffer<T>> create()
+        static std::shared_ptr<Buffer<T>> create(uint32_t width, uint32_t height)
         {
-            return std::make_shared<Buffer<T>>();
+            auto buffer = std::make_shared<Buffer<T>>();
+            buffer->init(width, height);
+            return buffer;
         }
 
-        Buffer()
-            : mWidth(0)
-            , mHeight(0)
-            , mDataWidth(0)
-            , mDataHeight(0)
-            , mDataSize(0)
-            , mData(nullptr)
-        {
+        Buffer() = default;
+        virtual ~Buffer() = default;
 
+        Buffer(const Buffer& other)
+        {
+            destroy();
+
+            init(other.mWidth, other.mHeight);
+
+            std::memcpy(mData->get(), other.mData->get(), mDataSize * sizeof(T));
         }
 
-        ~Buffer()
+        Buffer& operator=(const Buffer& other)
         {
+            destroy();
 
+            init(other.mWidth, other.mHeight);
+
+            std::memcpy(mData->get(), other.mData->get(), mDataSize * sizeof(T));
         }
 
-        void init(int32_t width, int32_t height)
+        void init(uint32_t width, uint32_t height)
         {
             if (width > 0 && height > 0)
             {
@@ -42,49 +49,60 @@ namespace SoftRenderer
                 mWidth = width;
                 mHeight = height;
 
-                initSize();
+                initDataSize();
 
                 mData = std::shared_ptr<T>(new T[mDataSize], [](const T* ptr) {delete[] ptr; });
             }
         }
 
+        virtual void destroy() 
+        {
+            mWidth = 0;
+            mHeight = 0;
+            mDataWidth = 0;
+            mDataHeight = 0;
+            mDataSize = 0;
+            mData = nullptr;
+        }
 
         inline bool isEmpty() const
         {
             return mData == nullptr;
         }
 
-        inline unsigned int getWidth() const
+        inline uint32_t getWidth() const
         {
             return mWidth;
         }
 
-        inline unsigned int getHeight() const
+        inline uint32_t getHeight() const
         {
             return mHeight;
         }
 
-        inline T* get(int32_t x, int32_t y)
+        inline T* get(uint32_t x, uint32_t y)
         {
             T* dataPtr = mData.get();
             if (dataPtr != nullptr)
             {
                 if (x < mWidth && y < mHeight)
                 {
-                    return &dataPtr[convertIndex(x, y)];
+                    const uint32_t index = getDataIndex(x, y);
+                    return &dataPtr[index];
                 }
             }
             return nullptr;
         }
 
-        inline void set(int32_t x, int32_t y, const T& value)
+        inline void set(uint32_t x, uint32_t y, const T& value)
         {
             T* dataPtr = mData.get();
             if (dataPtr != nullptr)
             {
                 if (x < mWidth && y < mHeight)
                 {
-                    dataPtr[convertIndex(x, y)] = value;
+                    const uint32_t index = getDataIndex(x, y);
+                    dataPtr[index] = value;
                 }
             }
         }
@@ -117,30 +135,42 @@ namespace SoftRenderer
             }
         }
 
-    private:
-        virtual inline void initSize(int32_t width, int32_t height)
+        inline void setAll(T value) const 
         {
-            mDataWidth = width;
-            mDataHeight = height;
+            T* dataPtr = mData.get();
+            if (dataPtr != nullptr) 
+            {
+                for (uint32_t i = 0; i < mDataSize; i++) 
+                {
+                    dataPtr[i] = value;
+                }
+            }
+        }
+
+    private:
+        virtual inline void initDataSize()
+        {
+            mDataWidth = mWidth;
+            mDataHeight = mHeight;
             mDataSize = mDataWidth * mDataHeight;
         }
 
-        virtual inline unsigned int convertIndex(int32_t x, int32_t y) const
+        virtual inline uint32_t getDataIndex(uint32_t x, uint32_t y) const
         {
             y * mWidth + x;
         }
 
 
     private:
-        int32_t mWidth;
-        int32_t mHeight;
+        uint32_t mWidth = 0;
+        uint32_t mHeight = 0;
 
-        int32_t mDataWidth;
-        int32_t mDataHeight;
+        uint32_t mDataWidth = 0;
+        uint32_t mDataHeight = 0;
 
-        int32_t mDataSize;
+        uint32_t mDataSize = 0;
 
-        std::shared_ptr<T> mData;
+        std::shared_ptr<T> mData = nullptr;
     };
 
 
