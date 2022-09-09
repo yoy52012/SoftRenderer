@@ -32,7 +32,20 @@ add_subdirectory(${THIRD_PARTY_DIR}/assimp)
 
 # main src
 file(GLOB SOFTRENDERER_SRC
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/Buffer.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/Camera.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/FrameBuffer.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/Graphics.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/Image.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/MathUtils.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/Mesh.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/Pipeline.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/Program.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/Render.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/Shader.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/SoftRender.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/Texture.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/Window.cpp
         )
 
 

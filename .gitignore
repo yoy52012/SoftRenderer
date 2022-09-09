@@ -12,3 +12,7 @@ _deps
 .vs/
 build/
 .vscode/
+bin/
+*.exe
+*.ilk
+*.pdb

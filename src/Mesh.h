@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <memory>
 #include <glm/glm.hpp>
 
 namespace SoftRenderer
@@ -77,12 +78,6 @@ namespace SoftRenderer
 		SubMesh& setUvs(const std::vector<glm::vec2>& uvs);
 		SubMesh& setIndices(const std::vector<int>& indices);
 		SubMesh& build();
-
-		static SubMesh createPlaneMesh();
-		static SubMesh createPlaneMesh2();
-
-		static SubMesh createBoxMesh();
-		static SubMesh createBoxMesh2();
 	
 		std::vector<Vertex> vertices;
 		std::vector<int> indices;
@@ -99,6 +94,16 @@ namespace SoftRenderer
 	class Mesh
 	{
 	public:
-		std::vector<SubMesh> subMeshs;
+		void addSubMesh(std::shared_ptr<SubMesh> subMesh);
+
+        static std::shared_ptr<Mesh> createPlaneMesh();
+        static std::shared_ptr<Mesh> createPlaneMesh2();
+
+        static std::shared_ptr<Mesh> createBoxMesh();
+        static std::shared_ptr<Mesh> createBoxMesh2();
+
+	public:
+
+		std::vector<std::shared_ptr<SubMesh>> subMeshs;
 	};
 }

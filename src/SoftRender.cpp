@@ -596,14 +596,14 @@ void main()
 	v5.color = glm::vec4(0.0f, 1.0f, 0.0f, 1.0f);
 	v6.color = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
 
-	Mesh mesh1 = Mesh::createPlaneMesh();
+	std::shared_ptr<Mesh> mesh1 = Mesh::createPlaneMesh();
 
-	Mesh mesh2 = Mesh::createPlaneMesh2();
+	std::shared_ptr<Mesh> mesh2 = Mesh::createPlaneMesh2();
 
 
-	Mesh mesh;
-	mesh.addTriangle(v1, v2, v3);
-	mesh.addTriangle(v4, v5, v6);
+	//Mesh mesh;
+	//mesh.addTriangle(v1, v2, v3);
+	//mesh.addTriangle(v4, v5, v6);
 
 	glm::mat4 modelMat = glm::mat4(1.0f);
 
@@ -624,7 +624,7 @@ void main()
 			
 		//render.drawTriangle(v1, v2, v3);
 		//render.drawTriangle(v4, v5, v6);
-		render.drawMesh(mesh2);
+		render.drawMesh(mesh2.get());
 
 		//render.drawLine(glm::vec2(100, 10), glm::vec2(400, 40));
 

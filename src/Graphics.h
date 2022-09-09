@@ -13,7 +13,7 @@ namespace SoftRenderer
 
 		void drawTriangle(const Vertex& v0, const Vertex& v1, const Vertex& v2);
 
-		void drawMesh(const Mesh& mesh);
+		void drawMesh(const Mesh* mesh);
 
 		void clearBuffer(const glm::vec4& color);
 

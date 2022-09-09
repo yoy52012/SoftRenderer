@@ -16,7 +16,8 @@
 
 namespace SoftRenderer
 {
-	enum TextureType {
+	enum TextureType 
+	{
 		TextureType_NONE = 0,
 		TextureType_DIFFUSE,
 		TextureType_NORMALS,
@@ -84,34 +85,34 @@ namespace SoftRenderer
 		FILTER_LINEAR_MIPMAP_LINEAR,
 	};
 
-	enum PixelFormat
-	{
-		PF_L8,
-		PF_R8,
-        PF_RG88,
-        PF_RGB888,
-        PF_RGBA8888,
-        PF_RGBA4444,
-        PF_RGB565,
-        PF_R32F, //float
-        PF_RG32F,
-        PF_RGB32F,
-        PF_RGBA32F,
-        PF_R16F, //half float
-        PF_RG16F,
-        PF_RGB16F,
-        PF_RGBA16F,
-		PF_MAX
-	};
+	//enum PixelFormat
+	//{
+	//	PF_L8,
+	//	PF_R8,
+ //       PF_RG88,
+ //       PF_RGB888,
+ //       PF_RGBA8888,
+ //       PF_RGBA4444,
+ //       PF_RGB565,
+ //       PF_R32F, //float
+ //       PF_RG32F,
+ //       PF_RGB32F,
+ //       PF_RGBA32F,
+ //       PF_R16F, //half float
+ //       PF_RG16F,
+ //       PF_RGB16F,
+ //       PF_RGBA16F,
+	//	PF_MAX
+	//};
 
-    enum Interpolation 
-	{
-        INTERPOLATE_NEAREST,
-        INTERPOLATE_BILINEAR,
-        INTERPOLATE_CUBIC,
-        INTERPOLATE_TRILINEAR,
-        INTERPOLATE_LANCZOS,
-    };
+ //   enum Interpolation 
+	//{
+ //       INTERPOLATE_NEAREST,
+ //       INTERPOLATE_BILINEAR,
+ //       INTERPOLATE_CUBIC,
+ //       INTERPOLATE_TRILINEAR,
+ //       INTERPOLATE_LANCZOS,
+ //   };
 
     // Find the first greater number which equals to 2^n, from jdk1.7
     static int32_t roundUpToPowerOf2(int32_t n)
@@ -130,6 +131,18 @@ namespace SoftRenderer
 	class Texture
 	{
 	public:
+
+		Texture(const Texture& other)
+		{
+            if (this != &other)
+            {
+                mType = other.mType;
+                mBuffer = other.mBuffer;
+                mMipmaps = other.mMipmaps;
+                mMipmapReadyFlag = other.mMipmapReadyFlag;
+                mMipmapGeneratingFlag = other.mMipmapGeneratingFlag;
+            }
+		}
 
 		Texture& operator=(const Texture& other) 
 		{
@@ -152,7 +165,7 @@ namespace SoftRenderer
 			}
 		}
 
-		void reset() 
+		void clear() 
 		{
 			mType = TextureType_NONE;
 			mBuffer = nullptr;
@@ -161,16 +174,45 @@ namespace SoftRenderer
 			mMipmapGeneratingFlag = false;
 		}
 
-		bool isMipmapsReady() 
+		bool isMipmapsReady() const
 		{
 			return mMipmapReadyFlag;
 		}
 
-		void setMipmapsReady(bool ready) 
+		void setMipmapsReady(bool ready) const
 		{
 			mMipmapReadyFlag = ready;
 		}
 
+		inline uint32_t getWidth() const 
+		{
+			if (mBuffer)
+			{
+				return mBuffer->getWidth();
+			}
+			return 0;
+		}
+
+		inline uint32_t getHeight() const
+		{
+			if (mBuffer)
+			{
+				return mBuffer->getHeight();
+			}
+			return 0;
+		}
+
+		inline bool isEmpty() const
+		{
+			if (mBuffer)
+			{
+				return mBuffer->isEmpty();
+			}
+
+			return true;
+		}
+
+        void generateMipmaps();
 
 		static std::shared_ptr<Buffer<glm::tvec4<T>>> createBuffer()
 		{
@@ -182,8 +224,6 @@ namespace SoftRenderer
 			return Buffer<glm::tvec4<T>>::create(width, height);
 		}
 
-		void generateMipmaps();
-
 	public:
 		TextureType mType = TextureType::TextureType_NONE;
 		std::shared_ptr<Buffer<glm::tvec4<T>>> mBuffer = nullptr;
@@ -193,7 +233,6 @@ namespace SoftRenderer
 		std::atomic<bool> mMipmapReadyFlag = false;
 		std::atomic<bool> mMipmapGeneratingFlag = false;
 		std::shared_ptr<std::thread> mMipmapThread = nullptr;
-
 	};
 
 	template<typename T>
@@ -227,7 +266,8 @@ namespace SoftRenderer
 		static const glm::tvec4<T> BORDER_COLOR;
 
 	protected:
-		std::function<float(BaseSampler<T>&)>* lod_func_ = nullptr;
+		//std::function<float(BaseSampler<T>&)>* lod_func_ = nullptr;
+		
 		bool mUsemipmaps = false;
 		int32_t mWidth = 0;
 		int32_t mHeight = 0;
@@ -236,14 +276,14 @@ namespace SoftRenderer
 	};
 
 	template<typename T>
-	class BaseSample2D : public Sampler<T>
+	class BaseSampler2D : public Sampler<T>
 	{
 	public:
 		inline void setTexture(Texture<T>* texture)
 		{
 			mTexture = texture;
-			mWidth  = (texture == nullptr || texture->mBuffer->isEmpty()) ? 0 : texture->mBuffer->getWidth();
-			mHeight = (texture == nullptr || texture->mBuffer->isEmpty()) ? 0 : texture->mBuffer->getHeight();
+			mWidth  = (texture == nullptr || texture->isEmpty()) ? 0 : texture->getWidth();
+			mHeight = (texture == nullptr || texture->isEmpty()) ? 0 : texture->getHeight();
 			mUsemipmaps = (mFilterMode != FILTER_NEAREST && mFilterMode != FILTER_LINEAR);
 		}
 
@@ -252,23 +292,25 @@ namespace SoftRenderer
 			return mTexture == nullptr;
 		}
 
-        virtual glm::vec4 texture2DImpl(glm::vec2& uv, float bias = 0.f) 
+        virtual glm::vec4 texture2DImpl(glm::vec2& uv, float bias = 0.0f) 
 		{
-            float lod = bias;
-            if (Sampler<T>::use_mipmaps && BaseSampler<T>::lod_func_) 
+			if (mTexture == nullptr)
 			{
-                lod += (*BaseSampler<T>::lod_func_)(*this);
-            }
+				return { 0, 0, 0, 0 };
+			}
+
+            float lod = bias;
+            //if (Sampler<T>::use_mipmaps && BaseSampler<T>::lod_func_) 
+			//{
+            //    lod += (*BaseSampler<T>::lod_func_)(*this);
+            //}
             return texture2DLodImpl(uv, lod);
         }
 
-        virtual glm::vec4 texture2DLodImpl(glm::vec2& uv, float lod = 0.f, glm::ivec2 offset = glm::ivec2(0)) 
+        virtual glm::vec4 texture2DLodImpl(glm::vec2& uv, float lod = 0.0f, glm::ivec2 offset = glm::ivec2(0)) 
 		{
-            if (tex_ == nullptr) 
-			{
-                return { 0, 0, 0, 0 };
-            }
-            glm::tvec4<T> color = BaseSampler<T>::TextureImpl(tex_, uv, lod, offset);
+            glm::tvec4<T> color = sampleTexture(mTexture, uv, lod, offset);
+
             return { color[0], color[1], color[2], color[3] };
         }
 
@@ -364,7 +406,7 @@ namespace SoftRenderer
 	template<typename T>
 	inline glm::tvec4<T> Sampler<T>::sampleTexture(Texture<T>* texture, const glm::vec2& uv, float lod, const glm::vec2& offset)
 	{
-		if (texture == nullptr || texture->mBuffer->empty())
+		if (texture == nullptr || texture->isEmpty())
 		{
 			return glm::tvec4<T>(0);
 		}
@@ -382,9 +424,9 @@ namespace SoftRenderer
 			return sampleBufferBilinear(texture->mBuffer->get(), uv, wrapMode, offset);
 		}
 
-		if (!texture->IsMipmapsReady())
+		if (!texture->isMipmapsReady())
 		{
-			texture->GenerateMipmaps();
+			texture->generateMipmaps();
 
 			if (filterMode == FilterMode::FILTER_NEAREST_MIPMAP_NEAREST || filterMode == FilterMode::FILTER_NEAREST_MIPMAP_LINEAR)
 			{
@@ -425,7 +467,7 @@ namespace SoftRenderer
             }
             else 
 			{
-                texel1 = sampleBufferBilinear(tex->mMipmaps[level1].get(), uv, wrapMode, offset);
+                texel1 = sampleBufferBilinear(texture->mMipmaps[level1].get(), uv, wrapMode, offset);
             }
 
             if (level1 == level2) 
@@ -436,15 +478,16 @@ namespace SoftRenderer
 			{
                 if (filterMode == FilterMode::FILTER_NEAREST_MIPMAP_LINEAR) 
 				{
-                    texel2 = sampleBufferNearest(tex->mMipmaps[level2].get(), uv, wrapMode, offset);
+                    texel2 = sampleBufferNearest(texture->mMipmaps[level2].get(), uv, wrapMode, offset);
                 }
                 else 
 				{
-                    texel2 = sampleBufferBilinear(tex->mMipmaps[level2].get(), uv, wrapMode, offset);
+                    texel2 = sampleBufferBilinear(texture->mMipmaps[level2].get(), uv, wrapMode, offset);
                 }
             }
 
             float f = glm::fract(lod);
+
             return glm::mix(texel1, texel2, f);
         }
 

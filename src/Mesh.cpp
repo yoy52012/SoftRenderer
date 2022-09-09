@@ -5,8 +5,6 @@ namespace SoftRenderer
 	SubMesh::SubMesh(const std::vector<glm::vec3>& positions, const std::vector<glm::vec3>& normals, const std::vector<glm::vec2>& uvs, const std::vector<int>& indices)
 	{
 		
-
-
 	}
 
 	void SubMesh::addTriangle(const Vertex& v0, const Vertex& v1, const Vertex& v2)
@@ -74,7 +72,7 @@ namespace SoftRenderer
 			vertices.emplace_back(vertex);
 		}
 
-		if ((flag & Mesh::MeshFlags::HasTexcoord) && (positions.size() == uvs.size()))
+		if ((flag & SubMesh::MeshFlags::HasTexcoord) && (positions.size() == uvs.size()))
 		{
 			for (int i = 0; i < uvs.size(); i++)
 			{
@@ -83,7 +81,7 @@ namespace SoftRenderer
 			}
 		}
 
-		if ((flag & Mesh::MeshFlags::HasNormal) && (positions.size() == normals.size()))
+		if ((flag & SubMesh::MeshFlags::HasNormal) && (positions.size() == normals.size()))
 		{
 			for (int i = 0; i < normals.size(); i++)
 			{
@@ -92,7 +90,7 @@ namespace SoftRenderer
 			}
 		}
 
-		if ((flag & Mesh::MeshFlags::HasTangent) && (positions.size() == tangents.size()))
+		if ((flag & SubMesh::MeshFlags::HasTangent) && (positions.size() == tangents.size()))
 		{
 			for (int i = 0; i < tangents.size(); i++)
 			{
@@ -101,7 +99,7 @@ namespace SoftRenderer
 			}
 		}
 
-		if ((flag & Mesh::MeshFlags::HasColor) && (positions.size() == colors.size()))
+		if ((flag & SubMesh::MeshFlags::HasColor) && (positions.size() == colors.size()))
 		{
 			for (int i = 0; i < colors.size(); i++)
 			{
@@ -113,7 +111,12 @@ namespace SoftRenderer
 		return *this;
 	}
 
-	SubMesh SubMesh::createPlaneMesh()
+	void Mesh::addSubMesh(std::shared_ptr<SubMesh> subMesh)
+	{
+		subMeshs.emplace_back(subMesh);
+	}
+
+	std::shared_ptr<Mesh> Mesh::createPlaneMesh()
 	{
 		glm::vec2 size(2.0f, 2.0f);
 		int subdivide_d = 1;
@@ -185,24 +188,22 @@ namespace SoftRenderer
 			thisrow = point;
 		};
 
-		SubMesh mesh;
-		mesh.setPositions(positions)
-			.setUvs(uvs)
-			.setNormals(normals)
-			.setTangents(tangents)
-			.setColors(colors)
-			.setIndices(indices)
-			.build();
+		std::shared_ptr<SubMesh> submesh = std::make_shared<SubMesh>();
+		submesh->setPositions(positions)
+            .setUvs(uvs)
+            .setNormals(normals)
+            .setTangents(tangents)
+            .setColors(colors)
+            .setIndices(indices)
+            .build();
 
-		//Mesh mesh;
-		//mesh.vertices = vertices;
-		//mesh.indices = indices;
-		//return mesh;
+		std::shared_ptr<Mesh> mesh = std::make_shared<Mesh>();
+		mesh->addSubMesh(submesh);
 
 		return mesh;
 	}
 
-	SubMesh SubMesh::createPlaneMesh2()
+	std::shared_ptr<Mesh> Mesh::createPlaneMesh2()
 	{
 		int width = 1;
 		int height = 1;
@@ -256,17 +257,20 @@ namespace SoftRenderer
 			}
 		}
 
-		SubMesh mesh;
-		mesh.setPositions(positions)
+		std::shared_ptr<SubMesh> submesh = std::make_shared<SubMesh>();
+		submesh->setPositions(positions)
 			.setUvs(uvs)
 			.setNormals(normals)
 			.setIndices(indices)
 			.build();
 
+		std::shared_ptr<Mesh> mesh = std::make_shared<Mesh>();
+		mesh->addSubMesh(submesh);
+
 		return mesh;
 	}
 
-	SubMesh SubMesh::createBoxMesh()
+	std::shared_ptr<Mesh> Mesh::createBoxMesh()
 	{
 		glm::vec3 size(1.0f, 1.0f, 1.0f);
 		int subdivide_h = 1;
@@ -470,13 +474,17 @@ namespace SoftRenderer
 			thisrow = point;
 		};
 
-		SubMesh mesh;
-		mesh.vertices = vertices;
-		mesh.indices = indices;
+        std::shared_ptr<SubMesh> submesh = std::make_shared<SubMesh>();
+        submesh->vertices = vertices;
+        submesh->indices = indices;
+
+        std::shared_ptr<Mesh> mesh = std::make_shared<Mesh>();
+        mesh->addSubMesh(submesh);
+
 		return mesh;
 	}
 
-	SubMesh SubMesh::createBoxMesh2()
+	std::shared_ptr<Mesh> Mesh::createBoxMesh2()
 	{
 		int width = 1;
 		int height = 1;
@@ -571,7 +579,7 @@ namespace SoftRenderer
 		buildPlane(0, 1, 2, 1, -1, width, height, depth, widthSegments, heightSegments); // pz
 		buildPlane(0, 1, 2, -1, -1, width, height, -depth, widthSegments, heightSegments); // nz
 
-		return SubMesh();
+		return std::make_shared<Mesh>();
 	}
 }
 

@@ -54,19 +54,22 @@ namespace SoftRenderer
 		rasterizeTriangle3(vd0, vd1, vd2);
 	}
 
-	void Graphics::drawMesh(const Mesh& mesh)
+	void Graphics::drawMesh(const Mesh* mesh)
 	{
-		if (mesh.indices.empty() || mesh.vertices.empty())
-			return;
-
-		for (int i = 0; i < mesh.indices.size(); i+=3)
+		for (const auto subMesh : mesh->subMeshs)
 		{
-			Vertex v0, v1, v2;
-			v0 = mesh.vertices[mesh.indices[i]];
-			v1 = mesh.vertices[mesh.indices[i + 1]];
-			v2 = mesh.vertices[mesh.indices[i + 2]];
+            if (subMesh->indices.empty() || subMesh->vertices.empty())
+                return;
 
-			drawTriangle(v0, v1, v2);
+            for (int i = 0; i < subMesh->indices.size(); i += 3)
+            {
+                Vertex v0, v1, v2;
+                v0 = subMesh->vertices[subMesh->indices[i]];
+                v1 = subMesh->vertices[subMesh->indices[i + 1]];
+                v2 = subMesh->vertices[subMesh->indices[i + 2]];
+
+                drawTriangle(v0, v1, v2);
+            }
 		}
 	}
 
