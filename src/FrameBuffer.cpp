@@ -20,22 +20,28 @@ namespace SoftRenderer
 
 	void FrameBuffer::clearColor(const glm::vec4& color)
 	{
-		int numPixel = mWidth * mHeight;
+		clearColor(color.r, color.g, color.b, color.a);
+	}
 
-		for (int i = 0; i < numPixel; ++i) {
-			mColorBuffer[i * 4 + 0] = static_cast<unsigned char>(255 * color.x);
-			mColorBuffer[i * 4 + 1] = static_cast<unsigned char>(255 * color.y);
-			mColorBuffer[i * 4 + 2] = static_cast<unsigned char>(255 * color.z);
-			mColorBuffer[i * 4 + 3] = static_cast<unsigned char>(255 * color.w);
-		}
+	void FrameBuffer::clearColor(float r, float g, float b, float a)
+	{
+        const int32_t numPixel = mWidth * mHeight;
 
+        for (int32_t i = 0; i < numPixel; ++i) 
+		{
+            mColorBuffer[i * 4 + 0] = static_cast<unsigned char>(255 * r);
+            mColorBuffer[i * 4 + 1] = static_cast<unsigned char>(255 * g);
+            mColorBuffer[i * 4 + 2] = static_cast<unsigned char>(255 * b);
+            mColorBuffer[i * 4 + 3] = static_cast<unsigned char>(255 * a);
+        }
 	}
 
 	void FrameBuffer::clearDepth(float depth)
 	{
-		int numPixel = mWidth * mHeight;
+		const int32_t numPixel = mWidth * mHeight;
 
-		for (int i = 0; i < numPixel; ++i) {
+		for (int32_t i = 0; i < numPixel; ++i) 
+		{
 			mDepthBuffer[i] = depth;
 		}
 	}

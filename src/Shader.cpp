@@ -16,9 +16,10 @@ namespace SoftRenderer
 
 	glm::vec4 Shader::fragmentShader(const Shader::VertexData& v2f)
 	{
-		glm::vec4 color;
-		//color = v2f.color;
-		color = mUniforms.albedo->sampleRepeat(v2f.texcoord);
+		glm::vec4 color(1);
+		color = v2f.color;
+		//color = mUniforms.albedo->sampleRepeat(v2f.texcoord);
+		color = mUniforms.albedoMap.texture2D(v2f.texcoord);
 		return color;
 	}
 }

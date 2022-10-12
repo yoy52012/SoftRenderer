@@ -9,7 +9,18 @@ namespace SoftRenderer
 	class Graphics
 	{
 	public:
+		struct Viewport
+		{
+			float x;
+			float y;
+			float width;
+			float height;
+		};
+
+	public:
 		void init(int width, int height);
+
+		void clear(float r, float g, float b, float a);
 
 		void drawTriangle(const Vertex& v0, const Vertex& v1, const Vertex& v2);
 
@@ -27,10 +38,13 @@ namespace SoftRenderer
 
 		void setProjMatrix(const glm::mat4& mat);
 
-		void drawLine(const glm::vec2& vertex0, const glm::vec2& vertex1);
+		void drawLine(const glm::vec2& v0, const glm::vec2& v1);
 
 	private:
-		glm::vec3 perspectiveDivede(const glm::vec4& clipCoord);
+		void processVertexShader();
+
+	private:
+		glm::vec3 perspectiveDivide(const glm::vec4& pos);
 
 		glm::vec3 viewportTransform(const glm::vec3& ndcCoord);
 
@@ -59,5 +73,7 @@ namespace SoftRenderer
 
 		int mWidth;
 		int mHeight;
+
+		Viewport mViewport;
 	};
 }

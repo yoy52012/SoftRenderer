@@ -5,21 +5,29 @@
 namespace SoftRenderer
 {
     template<typename T>
-    class Buffer
+    class TextureBuffer
     {
     public:
 
-        static std::shared_ptr<Buffer<T>> create(uint32_t width, uint32_t height)
+        static std::shared_ptr<TextureBuffer<T>> create(uint32_t width, uint32_t height)
         {
-            auto buffer = std::make_shared<Buffer<T>>();
-            buffer->init(width, height);
+            auto buffer = std::make_shared<LinearTextureBuffer<T>>(width, height);
             return buffer;
         }
 
-        Buffer() = default;
-        virtual ~Buffer() = default;
+        /**
+         * Create empty buffer
+         */
+        TextureBuffer() = default;
 
-        Buffer(const Buffer& other)
+        TextureBuffer(uint32_t width, uint32_t height)
+        {
+            
+        }
+
+        virtual ~TextureBuffer() = default;
+
+        TextureBuffer(const TextureBuffer& other)
         {
             destroy();
 
@@ -28,7 +36,7 @@ namespace SoftRenderer
             std::memcpy(mData->get(), other.mData->get(), mDataSize * sizeof(T));
         }
 
-        Buffer& operator=(const Buffer& other)
+        TextureBuffer& operator=(const TextureBuffer& other)
         {
             destroy();
 
@@ -49,8 +57,9 @@ namespace SoftRenderer
                 mWidth = width;
                 mHeight = height;
 
-                initDataSize();
+                initLayout();
 
+                mDataSize = mInnerWidth * mInnerHeight;
                 mData = std::shared_ptr<T>(new T[mDataSize], [](const T* ptr) {delete[] ptr; });
             }
         }
@@ -59,8 +68,8 @@ namespace SoftRenderer
         {
             mWidth = 0;
             mHeight = 0;
-            mDataWidth = 0;
-            mDataHeight = 0;
+            mInnerWidth = 0;
+            mInnerHeight = 0;
             mDataSize = 0;
             mData = nullptr;
         }
@@ -80,6 +89,11 @@ namespace SoftRenderer
             return mHeight;
         }
 
+        inline T* getData() const 
+        {
+            return mData.get();
+        }
+
         inline T* get(uint32_t x, uint32_t y)
         {
             T* dataPtr = mData.get();
@@ -87,7 +101,7 @@ namespace SoftRenderer
             {
                 if (x < mWidth && y < mHeight)
                 {
-                    const uint32_t index = getDataIndex(x, y);
+                    const uint32_t index = convertIndex(x, y);
                     return &dataPtr[index];
                 }
             }
@@ -101,7 +115,7 @@ namespace SoftRenderer
             {
                 if (x < mWidth && y < mHeight)
                 {
-                    const uint32_t index = getDataIndex(x, y);
+                    const uint32_t index = convertIndex(x, y);
                     dataPtr[index] = value;
                 }
             }
@@ -127,9 +141,9 @@ namespace SoftRenderer
                 }
                 else
                 {
-                    for (int i = 0; i < mDataHeight; i++)
+                    for (int i = 0; i < mInnerHeight; i++)
                     {
-                        std::memcpy(out + mDataWidth * i, dataPtr + mDataWidth * (mDataHeight - 1 - i), mDataWidth * sizeof(T));
+                        std::memcpy(out + mInnerWidth * i, dataPtr + mInnerWidth * (mInnerHeight - 1 - i), mInnerWidth * sizeof(T));
                     }
                 }
             }
@@ -147,65 +161,104 @@ namespace SoftRenderer
             }
         }
 
-    private:
-        virtual inline void initDataSize()
-        {
-            mDataWidth = mWidth;
-            mDataHeight = mHeight;
-            mDataSize = mDataWidth * mDataHeight;
-        }
+    protected:
+        virtual void initLayout() = 0;
 
-        virtual inline uint32_t getDataIndex(uint32_t x, uint32_t y) const
-        {
-            y * mWidth + x;
-        }
+        virtual uint32_t convertIndex(uint32_t x, uint32_t y) const = 0;
 
-
-    private:
+    protected:
         uint32_t mWidth = 0;
         uint32_t mHeight = 0;
 
-        uint32_t mDataWidth = 0;
-        uint32_t mDataHeight = 0;
+        uint32_t mInnerWidth = 0;
+        uint32_t mInnerHeight = 0;
 
         uint32_t mDataSize = 0;
 
         std::shared_ptr<T> mData = nullptr;
     };
 
-
     template<typename T>
-    class TiledBuffer : public Buffer<T>
+    class LinearTextureBuffer : public TextureBuffer<T>
     {
-    private:
-        virtual inline void initSize(unsigned int width, unsigned int height) override
+    public:
+        LinearTextureBuffer(int32_t width, int32_t height)
+        : TextureBuffer(width, height)
         {
-            mTileWidth = (this->mWidth + tileSize - 1) / tileSize;
-            mTileHeight = (this->mHeight + tileSize - 1) / tileSize;
-            this->mDataWidth = mTileWidth * tileSize;
-            this->mDataHeight = mTileHeight * tileSize;
-        }
-
-        inline unsigned int convertIndex(unsigned int x, unsigned int y) const override 
-        {
-            uint16_t tileX = x >> bits;              // x / tile_size_
-            uint16_t tileY = y >> bits;              // y / tile_size_
-            uint16_t inTileX = x & (tileSize - 1);   // x % tile_size_
-            uint16_t inTileY = y & (tileSize - 1);   // y % tile_size_
-
-            return ((tileY * mTileWidth + tileX) << bits << bits)
-                 + (inTileY << bits)
-                 + inTileX;
+            init(width, height);
         }
 
     private:
-        unsigned int mTileWidth;
-        unsigned int mTileHeight;
+        inline void initLayout() override
+        {
+            mInnerWidth  = mWidth;
+            mInnerHeight = mHeight;
+        }
 
-        const static int tileSize = 4;
-        const static int bits = 2;
-
+        inline uint32_t convertIndex(uint32_t x, uint32_t y) const override
+        {
+            return y * mInnerWidth + x;
+        }
     };
 
+    template<typename T>
+    class TiledTextureBuffer : public TextureBuffer<T>
+    {
+    public:
+        TiledTextureBuffer(int32_t width, int32_t height)
+        : TextureBuffer(width, height)
+        {}
+
+    private:
+
+        inline void initLayout() override
+        {
+            mTileWidth   = (mWidth + tileSize - 1) / tileSize;
+            mTileHeight  = (mHeight + tileSize - 1) / tileSize;
+            mInnerWidth  =  mTileWidth * tileSize;
+            mInnerHeight =  mTileHeight * tileSize;
+        }
+
+        inline uint32_t convertIndex(uint32_t x, uint32_t y) const override
+        {
+            //Tiling address mapping
+            //Note: this is naive version
+            //return ((y / tileSize) * mTileWidth + (x / tileSize)) * tileSize * tileSize  + (y % tileSize) * tileSize + x % tileSize;
+            //Note: this is optimized version
+            uint16_t tileX = x >> bits_;              // x / tileSize
+            uint16_t tileY = y >> bits_;              // y / tileSize
+            uint16_t inTileX = x & (tileSize - 1);    // x % tileSize
+            uint16_t inTileY = y & (tileSize - 1);    // y % tileSize
+
+            return ((tileY * mTileWidth + tileX) << bits_ << bits_) + (inTileY << bits_) + inTileX;
+        }
+
+    private:
+        const static int tileSize = 4;    // 4 x 4
+        const static int bits = 2;        // tileSize = 2^bits
+        size_t mTileWidth = 0;
+        size_t mTileHeight = 0;
+    };
+
+    template<typename T>
+    class MortonTextureBuffer : public TextureBuffer<T>
+    {
+    public:
+        MortonTextureBuffer(int32_t width, int32_t height)
+        :TextureBuffer(width, height)
+        {}
+
+    private:
+        inline void initLayout() override
+        {
+
+        }
+
+
+        inline uint32_t convertIndex(uint32_t x, uint32_t y) const override
+        {
+            return 0;
+        }
+    };
 }
 

@@ -22,6 +22,7 @@ namespace SoftRenderer
 		float* getDepthBuffer() { return mDepthBuffer.data(); }
 
 		void clearColor(const glm::vec4& color);
+		void clearColor(float r, float g, float b, float a);
 		void clearDepth(float depth);
 
 		void writeColor(unsigned int x, unsigned int y, const glm::vec4& color);

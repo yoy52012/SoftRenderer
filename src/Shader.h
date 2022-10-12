@@ -1,8 +1,9 @@
 #pragma once
 
+#include <memory>
+
 #include <glm/glm.hpp>
 #include <glm/gtx/compatibility.hpp>
-#include <memory>
 
 #include "MathUtils.h"
 #include "Mesh.h"
@@ -54,7 +55,7 @@ namespace SoftRenderer
 
 		struct Uniforms
 		{
-			Texture2D::Ptr albedo;
+			Sampler2D albedoMap;
 		};
 
 	public:
@@ -102,18 +103,20 @@ namespace SoftRenderer
 
 	struct BaseShaderAttributes
 	{
-		glm::vec3 aPosition;
-		glm::vec2 aTexcoord;
-		glm::vec3 aNormal;
-		glm::vec3 aTangent;
+		glm::vec3 position;
+		glm::vec2 textureCoord;
+		glm::vec3 normal;
+		glm::vec3 tangent;
 	};
 
 	struct BaseShaderUniforms
 	{
-		glm::mat4 uModelMatrix;
-		glm::mat4 uModelViewProjectMatrix;
+		glm::mat4 modelMatrix;
+		glm::mat4 modelViewProjectMatrix;
+		glm::mat4 inverseTransposeModelMatrix;
 
-		glm::vec3 uCameraPostion;
+		glm::vec3 lightPosition;
+		glm::vec3 cameraPostion;
 	};
 
 	struct BaseShaderVaryings
@@ -121,40 +124,59 @@ namespace SoftRenderer
 
 	};
 
-	struct BaseShader
+	class BaseShader
 	{
+	public:
 		BaseShaderUniforms* uniforms = nullptr;
 		
-		virtual void main() = 0;
+		virtual void shaderMain() = 0;
 	};
 
-	struct BaseVertexShader : BaseShader
+	class BaseVertexShader : BaseShader
 	{
+	public:
+		// Built-in variables
 		glm::vec4 gl_Postion;
 
+		// Custom variables
 		BaseShaderAttributes* attributes;
-		BaseShaderVaryings* varyings;
+		BaseShaderVaryings*   varyings;
 
-		void main() override
+		void shaderMain() override
 		{
-			
+			auto* a = (BaseShaderAttributes*)attributes;
+			auto* u = (BaseShaderUniforms*)uniforms;
+			auto* v = (BaseShaderVaryings*)varyings;
+
+			glm::vec4 position = glm::vec4(a->position, 1.0f);
+			gl_Postion = u->modelViewProjectMatrix * position;
+
 		}
 	};
 
-	struct BaseFragmentShader : BaseShader
+	class BaseFragmentShader : BaseShader
 	{
-		glm::vec4 gl_FragCoord;
-		bool gl_FrontFacing;
+	public:
 
-		float gl_FragDepth;
+		// Built-in variables
+		glm::vec4 gl_FragCoord;
 		glm::vec4 gl_FragColor;
-		
+		bool gl_FrontFacing;
+		float gl_FragDepth;
+
+		// Custom variables
 		BaseShaderVaryings* varyings;
 
-		void main() override
+		void shaderMain() override
 		{
 			gl_FragDepth = gl_FragCoord.z;
 		}
+	};
+
+	struct ShaderContext
+	{
+		std::shared_ptr<BaseVertexShader> vertexShader;
+		std::shared_ptr<BaseFragmentShader> fragmentShader;
 	};
 
 }

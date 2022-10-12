@@ -1,9 +1,16 @@
 #include "Image.h"
 
 #include <cstring>
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
+#include <vector>
 #include <iostream>
+
+#define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <stb_image.h>
+#include <stb_image_write.h>
+
+#include "ImageLoader.h"
+
 
 namespace SoftRenderer
 {
@@ -11,46 +18,46 @@ namespace SoftRenderer
 	{
 	}
 
-	Image::Image(int width, int height, int channle, ImageFormat format)
-	{
-		init(width, height, channle, format);
-	}
+    Image::Image(int32_t width, int32_t height, PixelFormat format)
+        : mWidth(0)
+        , mHeight(0)
+        , mByteSize(0)
+        , mPixelFormat(PixelFormat::PF_RGBA8888)
+        , mData(nullptr)
+    {
+        init(width, height, format);
+    }
 
-	Image::Image(const Image& image)
-		:mWidth(image.mWidth)
-		,mHeight(image.mHeight)
-		,mChannle(image.mChannle)
-		,mFormat(image.mFormat)
-	{
-		int size = mWidth * mHeight * mChannle;
-		init(mWidth, mHeight, mChannle, mFormat);
-		if (mFormat == ImageFormat::FORMAT_HDR)
-		{
-			std::copy(image.mHdrData, image.mHdrData + size, mHdrData);
-		}
-		else if (mFormat == ImageFormat::FORMAT_LDR)
-		{
-			std::copy(image.mLdrData, image.mLdrData + size, mLdrData);
-		}
-	}
+    Image::Image(int32_t width, int32_t height, PixelFormat format, const std::vector<uint8_t>& buffer)
+        : mWidth(0)
+        , mHeight(0)
+        , mByteSize(0)
+        , mPixelFormat(PixelFormat::PF_RGBA8888)
+        , mData(nullptr)
+    {
+        init(width, height, format, buffer);
+    }
+
+    Image::Image(const Image& image)
+    {
+        mWidth = image.mWidth;
+        mHeight = image.mHeight;
+        mByteSize = image.mByteSize;
+        mPixelFormat = image.mPixelFormat;
+        mData = new uint8_t[mByteSize];
+        
+        std::memcpy(mData, image.mData, image.mByteSize);
+    }
 
 	Image& Image::operator=(const Image& image)
 	{
-		mWidth = image.mWidth;
-		mHeight = image.mHeight;
-		mChannle = image.mChannle;
-		mFormat = image.mFormat;
+        mWidth = image.mWidth;
+        mHeight = image.mHeight;
+        mByteSize = image.mByteSize;
+        mPixelFormat = image.mPixelFormat;
+        mData = new uint8_t[mByteSize];
 
-		int size = mWidth * mHeight * mChannle;
-		init(mWidth, mHeight, mChannle, mFormat);
-		if (mFormat == ImageFormat::FORMAT_HDR)
-		{
-			std::copy(image.mHdrData, image.mHdrData + size, mHdrData);
-		}
-		else if (mFormat == ImageFormat::FORMAT_LDR)
-		{
-			std::copy(image.mLdrData, image.mLdrData + size, mLdrData);
-		}
+        std::memcpy(mData, image.mData, image.mByteSize);
 
 		return *this;
 	}
@@ -60,82 +67,649 @@ namespace SoftRenderer
 		release();
 	}
 
-	Image::Ptr Image::create(int width, int height, int channle, ImageFormat format)
-	{
-		Image::Ptr image = std::make_shared<Image>(width, height, channle, format);
-		return image;
-	}
-
 	Image::Ptr Image::create(const std::string& filename)
 	{
 		Image::Ptr image = std::make_shared<Image>();
-		if (!image->initFromFile(filename))
+		if (!image->load(filename))
 		{
 			return nullptr;
 		}
 		return image;
 	}
 
-	void Image::init(int width, int height, int channle, ImageFormat format)
-	{
-		int size = width * height * channle;
-		mWidth = width;
-		mHeight = height;
-		mChannle = channle;
-		if (format == ImageFormat::FORMAT_HDR)
-		{
-			mHdrData = (float*)std::malloc(size * sizeof(float));
-			std::memset(mHdrData, size * sizeof(float), 0);
-			mFormat = format;
-		}
-		else if (format == ImageFormat::FORMAT_LDR)
-		{
-			mLdrData = (unsigned char*)std::malloc(size * sizeof(unsigned char));
-			std::memset(mLdrData, size * sizeof(unsigned char), 0);
-			mFormat = format;
-		}
-	}
+    Image::Ptr Image::create(int32_t width, int32_t height, PixelFormat format)
+    {
+        Image::Ptr image = std::make_shared<Image>(width, height, format);
+        return image;
+    }
 
+    Image::Ptr Image::create(int32_t width, int32_t height, PixelFormat format, const std::vector<uint8_t>& buffer)
+    {
+        Image::Ptr image = std::make_shared<Image>(width, height, format, buffer);
+        return image;
+    }
 
-	bool Image::initFromFile(const std::string& filename)
-	{
-		if (filename.empty())
-		{
-			std::cout << "[ERROR] image filename =" << filename << " is empty!" << std::endl;
-			return false;
-		}
+    void Image::init(int32_t width, int32_t height, PixelFormat format)
+    {
+        if (width <= 0)
+        {
+            std::cerr << "The Image width specified (" << width << " pixels) must be greater than 0 pixels." << std::endl;
+            return;
+        }
+        if (height <= 0)
+        {
+            std::cerr << "The Image height specified (" << height << " pixels) must be greater than 0 pixels." << std::endl;
+            return;
+        }
 
-		const char* extension = std::strrchr(filename.c_str(), '.') + 1;
-		if (std::strcmp(extension, "hdr") == 0)
-		{
-			mHdrData = stbi_loadf(filename.c_str(), &mWidth, &mHeight, &mChannle, 0);
-			if (mHdrData == nullptr) {
-				std::cout << "[ERROR] can not load image = " << filename << std::endl;
-				return false;
-			}
-			mFormat = ImageFormat::FORMAT_HDR;
+        mByteSize = calculateByteSize(width, height, format);
+        mData = new uint8_t[mByteSize];
+        std::memset(mData, mByteSize, 0);
 
-		}
-		else {
-			mLdrData = stbi_load(filename.c_str(), &mWidth, &mHeight, &mChannle, 0);
-			if (mLdrData == nullptr) {
-				std::cout << "[ERROR] can not load image = " << filename << std::endl;
-				return false;
-			}
-			mFormat = ImageFormat::FORMAT_LDR;
-		}
+        mWidth = width;
+        mHeight = height;
+        mPixelFormat = format;
+    }
 
-		return true;
-	}
+    void Image::init(int32_t width, int32_t height, PixelFormat format, const std::vector<uint8_t>& buffer)
+    {
+        if (width <= 0)
+        {
+            std::cerr << "The Image width specified (" << width << " pixels) must be greater than 0 pixels." << std::endl;
+            return;
+        }
+        if (height <= 0)
+        {
+            std::cerr << "The Image height specified (" << height << " pixels) must be greater than 0 pixels." << std::endl;
+            return;
+        }
+
+        mByteSize = calculateByteSize(width, height, format);
+
+        if (mByteSize != buffer.size())
+        {
+            std::cerr << "Expected Image data size of" << mByteSize << "bytes, but got " << buffer.size() << " bytes instead." << std::endl;
+            return;
+        }
+
+        mData = new uint8_t[mByteSize];
+        std::memcpy(mData, buffer.data(), mByteSize);
+
+        mWidth = width;
+        mHeight = height;
+        mPixelFormat = format;
+    }
+
+    bool Image::load(const std::string& filename)
+    {
+        return ImageLoaderManager::getInstance()->loadImage(filename, shared_from_this());
+    }
+
+    bool Image::save(const std::string& filename, SaveFormat saveformat)
+    {
+        switch (saveformat)
+        {
+        case SaveFormat::PNG:
+            stbi_write_png(filename.c_str(), mWidth, mHeight, getComponent(), mData, mWidth * getComponent());
+            break;
+        case SaveFormat::JPG:
+            stbi_write_jpg(filename.c_str(), mWidth, mHeight, getComponent(), mData, 100);
+            break;
+        case SaveFormat::BMP:
+            break;
+        case SaveFormat::TGA:
+            break;
+        default:
+            break;
+        }
+
+        return true;
+    }
+
+    //using template generates perfectly optimized code due to constant expression reduction and unused variable removal present in all compilers
+    template <uint32_t ReadBytes, bool IsReadAlpha, uint32_t WriteBytes, bool IsWriteAlpha, bool IsReadGray, bool IsWriteGray>
+    static void _convert(int32_t width, int32_t height, const uint8_t* src, uint8_t* dst) 
+    {
+        uint32_t maxBytes = std::max(ReadBytes, WriteBytes);
+
+        for (int32_t y = 0; y < height; y++) 
+        {
+            for (int32_t x = 0; x < width; x++) 
+            {
+                const uint8_t* rofs = &src[((y * width) + x) * (ReadBytes + (IsReadAlpha ? 1 : 0))];
+                uint8_t* wofs = &dst[((y * width) + x) * (WriteBytes + (IsWriteAlpha ? 1 : 0))];
+
+                uint8_t rgba[4] = { 0, 0, 0, 255 };
+
+                if constexpr (IsReadGray) 
+                {
+                    rgba[0] = rofs[0];
+                    rgba[1] = rofs[0];
+                    rgba[2] = rofs[0];
+                }
+                else 
+                {
+                    for (int32_t i = 0; i < maxBytes; i++)
+                    {
+                        rgba[i] = (i < ReadBytes) ? rofs[i] : 0;
+                    }
+                }
+
+                if constexpr (IsReadAlpha || IsWriteAlpha) 
+                {
+                    rgba[3] = IsReadAlpha ? rofs[ReadBytes] : 255;
+                }
+
+                if constexpr (IsWriteGray) 
+                {
+                    //TODO: not correct grayscale, should use fixed point version of actual weights
+                    wofs[0] = uint8_t((uint16_t(rgba[0]) + uint16_t(rgba[1]) + uint16_t(rgba[2])) / 3);
+                }
+                else 
+                {
+                    for (int32_t i = 0; i < WriteBytes; i++) 
+                    {
+                        wofs[i] = rgba[i];
+                    }
+                }
+
+                if constexpr (IsWriteAlpha) 
+                {
+                    wofs[WriteBytes] = rgba[3];
+                }
+            }
+        }
+    }
+
+    void Image::convert(PixelFormat newFormat)
+    {
+        if(mByteSize == 0) return;
+        
+        if(mPixelFormat == newFormat) return;
+
+        const int32_t width = mWidth;
+        const int32_t height = mHeight;
+
+        if (mPixelFormat > PixelFormat::PF_RGBA8888 || newFormat > PixelFormat::PF_RGBA8888) 
+        {
+            Image newImage(width, height, newFormat);
+
+            for (int32_t i = 0; i < width; i++) 
+            {
+                for (int32_t j = 0; j < height; j++) 
+                {
+                    newImage.setPixel(i, j, getPixel(i, j));
+                }
+            }
+
+            copyFrom(newImage);
+
+            return;
+        }
+        
+        Image new_img(width, height, newFormat);
+
+        const uint8_t* rptr = mData;
+        uint8_t* wptr = new_img.mData;
+
+        int32_t conversionType = mPixelFormat | newFormat << 8;
+
+        switch (conversionType) 
+        {
+	        case PixelFormat::PF_L8 | (PixelFormat::PF_LA8 << 8):
+            {
+		        _convert<1, false, 1, true, true, true>(width, height, rptr, wptr);
+		        break;
+            }
+	        case PixelFormat::PF_L8 | (PixelFormat::PF_R8 << 8):
+            {
+                _convert<1, false, 1, false, true, false>(width, height, rptr, wptr);
+                break;
+            }
+
+	        case PixelFormat::PF_L8 | (PixelFormat::PF_RG88 << 8):
+            {
+		        _convert<1, false, 2, false, true, false>(width, height, rptr, wptr);
+		        break;
+            }
+	        case PixelFormat::PF_L8 | (PixelFormat::PF_RGB888 << 8):
+            {
+                _convert<1, false, 3, false, true, false>(width, height, rptr, wptr);
+                break;
+            }
+	        case PixelFormat::PF_L8 | (PixelFormat::PF_RGBA8888 << 8):
+            {
+                _convert<1, false, 3, true, true, false>(width, height, rptr, wptr);
+                break;
+            }
+            case PixelFormat::PF_LA8 | (PixelFormat::PF_L8 << 8) :
+            {
+		        _convert<1, true, 1, false, true, true>(width, height, rptr, wptr);
+		        break;
+            }
+	        case PixelFormat::PF_LA8 | (PixelFormat::PF_R8 << 8):
+            {
+		        _convert<1, true, 1, false, true, false>(width, height, rptr, wptr);
+		        break;
+            }
+	        case PixelFormat::PF_LA8 | (PixelFormat::PF_RG88 << 8):
+            {
+		        _convert<1, true, 2, false, true, false>(width, height, rptr, wptr);
+		        break;
+            }
+	        case PixelFormat::PF_LA8 | (PixelFormat::PF_RGB888 << 8):
+            {
+		        _convert<1, true, 3, false, true, false>(width, height, rptr, wptr);
+		        break;
+            }
+	        case PixelFormat::PF_LA8 | (PixelFormat::PF_RGBA8888 << 8):
+            {
+		        _convert<1, true, 3, true, true, false>(width, height, rptr, wptr);
+		        break;
+            }
+	        case PixelFormat::PF_R8 | (PixelFormat::PF_L8 << 8):
+            {
+		        _convert<1, false, 1, false, false, true>(width, height, rptr, wptr);
+		        break;
+            }
+	        case PixelFormat::PF_R8 | (PixelFormat::PF_LA8 << 8):
+            {
+		        _convert<1, false, 1, true, false, true>(width, height, rptr, wptr);
+		        break;
+            }
+	        case PixelFormat::PF_R8 | (PixelFormat::PF_RG88 << 8):
+            {
+		        _convert<1, false, 2, false, false, false>(width, height, rptr, wptr);
+		        break;
+            }
+	        case PixelFormat::PF_R8 | (PixelFormat::PF_RGB888 << 8):
+            {
+		        _convert<1, false, 3, false, false, false>(width, height, rptr, wptr);
+		        break;
+            }
+            case PixelFormat::PF_R8 | (PixelFormat::PF_RGBA8888 << 8) :
+            {
+		        _convert<1, false, 3, true, false, false>(width, height, rptr, wptr);
+		        break;
+            }
+	        case PixelFormat::PF_RG88 | (PixelFormat::PF_L8 << 8):
+            {
+		        _convert<2, false, 1, false, false, true>(width, height, rptr, wptr);
+		        break;
+            }
+	        case PixelFormat::PF_RG88 | (PixelFormat::PF_LA8 << 8):
+            {
+		        _convert<2, false, 1, true, false, true>(width, height, rptr, wptr);
+		        break;
+            }
+            case PixelFormat::PF_RG88 | (PixelFormat::PF_R8 << 8) :
+            {
+		        _convert<2, false, 1, false, false, false>(width, height, rptr, wptr);
+		        break;
+            }
+            case PixelFormat::PF_RG88 | (PixelFormat::PF_RGB888 << 8) :
+            {
+		        _convert<2, false, 3, false, false, false>(width, height, rptr, wptr);
+		        break;
+            }
+            case PixelFormat::PF_RG88 | (PixelFormat::PF_RGBA8888 << 8) :
+            {
+		        _convert<2, false, 3, true, false, false>(width, height, rptr, wptr);
+		        break;
+            }
+            case PixelFormat::PF_RGB888 | (PixelFormat::PF_L8 << 8) :
+            {
+		        _convert<3, false, 1, false, false, true>(width, height, rptr, wptr);
+		        break;
+            }
+	        case PixelFormat::PF_RGB888 | (PixelFormat::PF_LA8 << 8):
+            {
+		        _convert<3, false, 1, true, false, true>(width, height, rptr, wptr);
+		        break;
+            }
+	        case PixelFormat::PF_RGB888 | (PixelFormat::PF_R8 << 8):
+            {
+		        _convert<3, false, 1, false, false, false>(width, height, rptr, wptr);
+		        break;
+            }
+            case PixelFormat::PF_RGB888 | (PixelFormat::PF_RG88 << 8) :
+            {
+		        _convert<3, false, 2, false, false, false>(width, height, rptr, wptr);
+		        break;
+            }
+	        case PixelFormat::PF_RGB888 | (PixelFormat::PF_RGBA8888 << 8):
+            {
+		        _convert<3, false, 3, true, false, false>(width, height, rptr, wptr);
+		        break;
+            }
+            case PixelFormat::PF_RGBA8888 | (PixelFormat::PF_L8 << 8) :
+            {
+		        _convert<3, true, 1, false, false, true>(width, height, rptr, wptr);
+		        break;
+            }
+	        case PixelFormat::PF_RGBA8888 | (PixelFormat::PF_LA8 << 8):
+            {
+		        _convert<3, true, 1, true, false, true>(width, height, rptr, wptr);
+		        break;
+            }
+            case PixelFormat::PF_RGBA8888 | (PixelFormat::PF_R8 << 8) :
+            {
+		        _convert<3, true, 1, false, false, false>(width, height, rptr, wptr);
+		        break;
+            }
+            case PixelFormat::PF_RGBA8888 | (PixelFormat::PF_RG88 << 8) :
+            {
+		        _convert<3, true, 2, false, false, false>(width, height, rptr, wptr);
+		        break;
+            }
+	        case PixelFormat::PF_RGBA8888 | (PixelFormat::PF_RGB888 << 8):
+            {
+		        _convert<3, true, 3, false, false, false>(width, height, rptr, wptr);
+		        break;
+            }
+        }
+
+	    copyFrom(new_img);        
+    }
+
+    glm::vec4 Image::getPixel(int32_t x, int32_t y) const
+    {
+        uint32_t ofs = y * mWidth + x;
+
+        switch (mPixelFormat) 
+        {
+        case PixelFormat::PF_L8: 
+        {
+            float l = mData[ofs] / 255.0;
+            return glm::vec4(l, l, l, 1);
+        }
+        case PixelFormat::PF_LA8: 
+        {
+            float l = mData[ofs * 2 + 0] / 255.0;
+            float a = mData[ofs * 2 + 1] / 255.0;
+            return  glm::vec4(l, l, l, a);
+        }
+        case PixelFormat::PF_R8: 
+        {
+            float r = mData[ofs] / 255.0;
+            return glm::vec4(r, 0, 0, 1);
+        }
+        case PixelFormat::PF_RG88: {
+            float r = mData[ofs * 2 + 0] / 255.0;
+            float g = mData[ofs * 2 + 1] / 255.0;
+            return glm::vec4(r, g, 0, 1);
+        }
+        case PixelFormat::PF_RGB888: {
+            float r = mData[ofs * 3 + 0] / 255.0;
+            float g = mData[ofs * 3 + 1] / 255.0;
+            float b = mData[ofs * 3 + 2] / 255.0;
+            return glm::vec4(r, g, b, 1);
+        }
+        case PixelFormat::PF_RGBA8888: {
+            float r = mData[ofs * 4 + 0] / 255.0;
+            float g = mData[ofs * 4 + 1] / 255.0;
+            float b = mData[ofs * 4 + 2] / 255.0;
+            float a = mData[ofs * 4 + 3] / 255.0;
+            return glm::vec4(r, g, b, a);
+        }
+        case PixelFormat::PF_RGBA4444: {
+            uint16_t u = (reinterpret_cast<uint16_t*>(mData))[ofs];
+            float r = ((u >> 12) & 0xF) / 15.0;
+            float g = ((u >> 8) & 0xF) / 15.0;
+            float b = ((u >> 4) & 0xF) / 15.0;
+            float a = (u & 0xF) / 15.0;
+            return glm::vec4(r, g, b, a);
+        }
+        case PixelFormat::PF_RGB565: {
+            uint16_t u = (reinterpret_cast<uint16_t*>(mData))[ofs];
+            float r = (u & 0x1F) / 31.0;
+            float g = ((u >> 5) & 0x3F) / 63.0;
+            float b = ((u >> 11) & 0x1F) / 31.0;
+            return glm::vec4(r, g, b, 1.0);
+        }
+        case PixelFormat::PF_R32F: {
+            float r = (reinterpret_cast<float*>(mData))[ofs];
+            return glm::vec4(r, 0, 0, 1);
+        }
+        case PixelFormat::PF_RG32F: {
+            float r = (reinterpret_cast<float*>(mData))[ofs * 2 + 0];
+            float g = (reinterpret_cast<float*>(mData))[ofs * 2 + 1];
+            return glm::vec4(r, g, 0, 1);
+        }
+        case PixelFormat::PF_RGB32F: {
+            float r = (reinterpret_cast<float*>(mData))[ofs * 3 + 0];
+            float g = (reinterpret_cast<float*>(mData))[ofs * 3 + 1];
+            float b = (reinterpret_cast<float*>(mData))[ofs * 3 + 2];
+            return glm::vec4(r, g, b, 1);
+        }
+        case PixelFormat::PF_RGBA32F: {
+            float r = (reinterpret_cast<float*>(mData))[ofs * 4 + 0];
+            float g = (reinterpret_cast<float*>(mData))[ofs * 4 + 1];
+            float b = (reinterpret_cast<float*>(mData))[ofs * 4 + 2];
+            float a = (reinterpret_cast<float*>(mData))[ofs * 4 + 3];
+            return glm::vec4(r, g, b, a);
+        }
+        default: 
+            return glm::vec4(0);  
+        }
+    }
+
+    void Image::setPixel(int32_t x, int32_t y, const glm::vec4& pixel)
+    {
+        uint32_t ofs = y * mWidth + x;;
+
+        switch (mPixelFormat)
+        {
+        case PixelFormat::PF_L8: 
+        {
+            mData[ofs] = uint8_t(glm::clamp<uint8_t>(pixel.r * 255.0, 0, 255));
+            break;
+        } 
+        case PixelFormat::PF_LA8: 
+        {
+            mData[ofs * 2 + 0] = uint8_t(glm::clamp<uint8_t>(pixel.r * 255.0, 0, 255));
+            mData[ofs * 2 + 1] = uint8_t(glm::clamp<uint8_t>(pixel.a * 255.0, 0, 255));
+            break;
+        } 
+        case PixelFormat::PF_R8: 
+        {
+            mData[ofs] = uint8_t(glm::clamp<uint8_t>(pixel.r * 255.0, 0, 255));
+            break;
+        } 
+        case PixelFormat::PF_RG88: 
+        {
+            mData[ofs * 2 + 0] = uint8_t(glm::clamp<uint8_t>(pixel.r * 255.0, 0, 255));
+            mData[ofs * 2 + 1] = uint8_t(glm::clamp<uint8_t>(pixel.g * 255.0, 0, 255));
+            break;
+        } 
+        case PixelFormat::PF_RGB888: 
+        {
+            mData[ofs * 3 + 0] = uint8_t(glm::clamp<uint8_t>(pixel.r * 255.0, 0, 255));
+            mData[ofs * 3 + 1] = uint8_t(glm::clamp<uint8_t>(pixel.g * 255.0, 0, 255));
+            mData[ofs * 3 + 2] = uint8_t(glm::clamp<uint8_t>(pixel.b * 255.0, 0, 255));
+            break;
+        } 
+        case PixelFormat::PF_RGBA8888:
+        {
+            mData[ofs * 4 + 0] = uint8_t(glm::clamp<uint8_t>(pixel.r * 255.0, 0, 255));
+            mData[ofs * 4 + 1] = uint8_t(glm::clamp<uint8_t>(pixel.g * 255.0, 0, 255));
+            mData[ofs * 4 + 2] = uint8_t(glm::clamp<uint8_t>(pixel.b * 255.0, 0, 255));
+            mData[ofs * 4 + 3] = uint8_t(glm::clamp<uint8_t>(pixel.a * 255.0, 0, 255));
+            break;
+        } 
+        case PixelFormat::PF_RGBA4444: 
+        {
+            uint16_t rgba = 0;
+
+            rgba  = uint16_t(glm::clamp<uint8_t>(pixel.r * 15.0, 0, 15)) << 12;
+            rgba |= uint16_t(glm::clamp<uint8_t>(pixel.g * 15.0, 0, 15)) << 8;
+            rgba |= uint16_t(glm::clamp<uint8_t>(pixel.b * 15.0, 0, 15)) << 4;
+            rgba |= uint16_t(glm::clamp<uint8_t>(pixel.a * 15.0, 0, 15));
+
+            (reinterpret_cast<uint16_t*>(mData))[ofs] = rgba;
+
+            break;
+        } 
+        case PixelFormat::PF_RGB565: 
+        {
+            uint16_t rgba = 0;
+
+            rgba  = uint16_t(glm::clamp<uint8_t>(pixel.r * 31.0, 0, 31));
+            rgba |= uint16_t(glm::clamp<uint8_t>(pixel.g * 63.0, 0, 33)) << 5;
+            rgba |= uint16_t(glm::clamp<uint8_t>(pixel.b * 31.0, 0, 31)) << 11;
+
+            (reinterpret_cast<uint16_t*>(mData))[ofs] = rgba;
+
+            break;
+        } 
+        case PixelFormat::PF_R32F: 
+        {
+            (reinterpret_cast<float*>(mData))[ofs] = pixel.r;
+            break;
+        } 
+        case PixelFormat::PF_RG32F: 
+        {
+            (reinterpret_cast<float*>(mData))[ofs * 2 + 0] = pixel.r;
+            (reinterpret_cast<float*>(mData))[ofs * 2 + 1] = pixel.g;
+            break;
+        } 
+        case PixelFormat::PF_RGB32F: 
+        {
+            (reinterpret_cast<float*>(mData))[ofs * 3 + 0] = pixel.r;
+            (reinterpret_cast<float*>(mData))[ofs * 3 + 1] = pixel.g;
+            (reinterpret_cast<float*>(mData))[ofs * 3 + 2] = pixel.b;
+            break;
+        } 
+        case PixelFormat::PF_RGBA32F: 
+        {
+            (reinterpret_cast<float*>(mData))[ofs * 4 + 0] = pixel.r;
+            (reinterpret_cast<float*>(mData))[ofs * 4 + 1] = pixel.g;
+            (reinterpret_cast<float*>(mData))[ofs * 4 + 2] = pixel.b;
+            (reinterpret_cast<float*>(mData))[ofs * 4 + 3] = pixel.a;
+            break;
+        } 
+        default: 
+            break;
+        }
+    }
+
+    void Image::copyFrom(const Image& image)
+    {
+        mWidth = image.mWidth;
+        mHeight = image.mHeight;
+        mByteSize = image.mByteSize;
+        mPixelFormat = image.mPixelFormat;
+
+        if(mData) 
+        {
+            delete[] mData;
+        }
+       
+        mData = new uint8_t[mByteSize];
+
+        std::memcpy(mData, image.mData, mByteSize);
+    }
+
+    int32_t Image::getPixelFormatByteSize(PixelFormat format)
+    {
+        switch (format)
+        {
+        case PixelFormat::PF_L8:
+            return 1;
+        case PixelFormat::PF_LA8:
+            return 2;
+        case PixelFormat::PF_R8:
+            return 1;
+        case PixelFormat::PF_RG88:
+            return 2;
+        case PixelFormat::PF_RGB888:
+            return 3;
+        case PixelFormat::PF_RGBA8888:
+            return 4;
+        case PixelFormat::PF_RGBA4444:
+            return 2;
+        case PixelFormat::PF_RGB565:
+            return 2;
+        case PixelFormat::PF_R32F:
+            return 4;
+        case PixelFormat::PF_RG32F:
+            return 8;
+        case PixelFormat::PF_RGB32F:
+            return 12;
+        case PixelFormat::PF_RGBA32F:
+            return 16;
+        case PixelFormat::PF_R16H:
+            return 2;
+        case PixelFormat::PF_RG16H:
+            return 4;
+        case PixelFormat::PF_RGB16H:
+            return 8;
+        case PixelFormat::PF_RGBA16H:
+            return 8;
+        default:
+            break;
+        }
+        return 0;
+    }
+
+    int32_t Image::getPixelFormatChannle(PixelFormat format)
+    {
+        switch (format)
+        {
+        case PixelFormat::PF_L8:
+            return 1;
+        case PixelFormat::PF_LA8:
+            return 2;
+        case PixelFormat::PF_R8:
+            return 1;
+        case PixelFormat::PF_RG88:
+            return 2;
+        case PixelFormat::PF_RGB888:
+            return 3;
+        case PixelFormat::PF_RGBA8888:
+            return 4;
+        case PixelFormat::PF_RGBA4444:
+            return 4;
+        case PixelFormat::PF_RGB565:
+            return 3;
+        case PixelFormat::PF_R32F:
+            return 1;
+        case PixelFormat::PF_RG32F:
+            return 2;
+        case PixelFormat::PF_RGB32F:
+            return 3;
+        case PixelFormat::PF_RGBA32F:
+            return 4;
+        case PixelFormat::PF_R16H:
+            return 1;
+        case PixelFormat::PF_RG16H:
+            return 2;
+        case PixelFormat::PF_RGB16H:
+            return 3;
+        case PixelFormat::PF_RGBA16H:
+            return 4;
+        default:
+            break;
+        }
+        return 0;
+    }
+
+    int32_t Image::calculateByteSize(int32_t width, int32_t height, PixelFormat format)
+    {
+        const int32_t pixelByteSize = getPixelFormatByteSize(format);
+
+        int32_t size = width * height * pixelByteSize;
+
+        return size;
+    }
 
 	void Image::release()
 	{
-		if (mHdrData) free(mHdrData); mHdrData = nullptr;
-		if (mLdrData) free(mLdrData); mLdrData = nullptr;
-		mWidth = 0;
+        if(mData) delete[] mData; mData = nullptr;
+
+        mWidth = 0;
 		mHeight = 0;
-		mChannle = 0;
-		mFormat = ImageFormat::FORMAT_UNKNOWN;
+
 	}
 
 #if 0
@@ -687,93 +1261,7 @@ namespace SoftRenderer
 
     }
 
-    int32_t Image::getPixelFormatByteSize(PixelFormat format) const
-    {
-        switch (format)
-        {
-        case PF_L8:
-            return 1;
-        case PF_R8:
-            return 1;
-        case PF_RG88:
-            return 2;
-        case PF_RGB888:
-            return 3;
-        case PF_RGBA8888:
-            return 4;
-        case PF_RGBA4444:
-            return 2;
-        case PF_RGB565:
-            return 2;
-        case PF_R32F:
-            return 4;
-        case PF_RG32F:
-            return 8;
-        case PF_RGB32F:
-            return 12;
-        case PF_RGBA32F:
-            return 16;
-        case PF_R16F:
-            return 2;
-        case PF_RG16F:
-            return 4;
-        case PF_RGB16F:
-            return 8;
-        case PF_RGBA16F:
-            return 8;
-        default:
-            break;
-        }
-        return 0;
-    }
 
-    int32_t Image::getByteSize(int32_t width, int32_t height, PixelFormat format, int32_t& mipmapCount, int32_t targetMipmaps) const
-    {
-        int32_t size = 0;
-        int32_t w = width;
-        int32_t h = height;
-
-        // Current mipmap index in the loop below. p_mipmaps is the target mipmap index.
-        // In this function, mipmap 0 represents the first mipmap instead of the original texture.
-        int32_t mm = 0;
-
-        const int32_t pixelByteSize = getPixelFormatByteSize(format);
-
-        const int32_t minWidth = 1;
-        const int32_t minHeight = 1;
-
-        while (true)
-        {
-            int32_t byteSize = w * h * pixelByteSize;
-
-            size += byteSize;
-
-            if (targetMipmaps >= 0)
-            {
-                w = std::max(minWidth, w >> 1);
-                h = std::max(minHeight, h >> 1);
-            }
-            else
-            {
-                if (w == minWidth && h == minHeight)
-                {
-                    break;
-                }
-                w = std::max(minWidth, w >> 1);
-                h = std::max(minHeight, h >> 1);
-            }
-
-            if (targetMipmaps >= 0 && mm == targetMipmaps)
-            {
-                break;
-            }
-
-            mm++;
-        }
-
-        mipmapCount = mm;
-        return size;
-    }
 
     void Image::getMipmapOffsetAndWidthHeight(int32_t mipmap, int32_t& offset, int32_t& width, int32_t& height) const
     {

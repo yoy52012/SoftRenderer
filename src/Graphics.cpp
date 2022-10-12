@@ -12,16 +12,37 @@ namespace SoftRenderer
 		mWidth = width;
 		mHeight = height;
 
+		// create back buffer
 		mFrontBuffer = std::make_shared<FrameBuffer>(width, height);
 		mBackBuffer = std::make_shared<FrameBuffer>(width, height);
 
+		// set viewport
+		mViewport.x = 0;
+		mViewport.y = 0;
+		mViewport.width  = (float)width;
+		mViewport.height = (float)height;
+
 		mShader = std::make_shared<Shader>();
 
-		std::string a = "container2.png";
+		std::string a = "Cube_BaseColor.png";
 		Image::Ptr image = Image::create(IMAGE_DIR + a);
-		Texture2D::Ptr albedo = std::make_shared<Texture2D>();
-		albedo->initFromImage(image);
-		mShader->mUniforms.albedo = albedo;
+
+		
+
+
+		Texture* texture = new Texture();
+		texture->initFromImage(image);
+		mShader->mUniforms.albedoMap.bindTexture(texture);
+
+		//Texture2D::Ptr albedo = std::make_shared<Texture2D>();
+		//albedo->initFromImage(image);
+		//mShader->mUniforms.albedo = albedo;
+	}
+
+	void Graphics::clear(float r, float g, float b, float a)
+	{
+		mFrontBuffer->clearColor(r, g, b, a);
+		mBackBuffer->clearColor(r, g, b, a);
 	}
 
 	void Graphics::drawTriangle(const Vertex& v0, const Vertex& v1, const Vertex& v2)
@@ -31,9 +52,9 @@ namespace SoftRenderer
 		vd1 = mShader->vertexShader(v1);
 		vd2 = mShader->vertexShader(v2);
 
-		glm::vec3 ndcPosition0 = perspectiveDivede(vd0.clipPostion);
-		glm::vec3 ndcPosition1 = perspectiveDivede(vd1.clipPostion);
-		glm::vec3 ndcPosition2 = perspectiveDivede(vd2.clipPostion);
+		glm::vec3 ndcPosition0 = perspectiveDivide(vd0.clipPostion);
+		glm::vec3 ndcPosition1 = perspectiveDivide(vd1.clipPostion);
+		glm::vec3 ndcPosition2 = perspectiveDivide(vd2.clipPostion);
 
 		vd0.clipW = 1.0f / vd0.clipPostion.w;
 		vd1.clipW = 1.0f / vd1.clipPostion.w;
@@ -110,11 +131,12 @@ namespace SoftRenderer
 		return ((c.x - a.x) * (b.y - a.y) - (c.y - a.y) * (b.x - a.x) >= 0 ) ;	
 	}
 
-	glm::vec3 Graphics::perspectiveDivede(const glm::vec4& clipCoord)
+	glm::vec3 Graphics::perspectiveDivide(const glm::vec4& pos)
 	{
-		float x = clipCoord.x / clipCoord.w;
-		float y = clipCoord.y / clipCoord.w;
-		float z = clipCoord.z / clipCoord.w;
+		float invW = 1.0f / pos.w;
+        float x = pos.x * invW;
+        float y = pos.y * invW;
+        float z = pos.z * invW;
 
 		return glm::vec3(x, y, z);
 	}
@@ -426,17 +448,14 @@ namespace SoftRenderer
 		}
 	}
 
-	void Graphics::drawLine(const glm::vec2& vertex0, const glm::vec2& vertex1)
+	void Graphics::drawLine(const glm::vec2& v0, const glm::vec2& v1)
 	{
-		auto v0 = glm::ivec2(vertex0.x, vertex0.y);
-		auto v1 = glm::ivec2(vertex1.x, vertex1.y);
+        int32_t x0 = (int32_t)v0.x;
+        int32_t y0 = (int32_t)v0.y;
+        int32_t x1 = (int32_t)v1.x;
+        int32_t y1 = (int32_t)v1.y;
 
-		int x0 = v0.x;
-		int y0 = v0.y;
-		int x1 = v1.x;
-		int y1 = v1.y;
-
-		bool steep = std::abs(y1-y0) > std::abs(x1 - x0);
+		bool steep = std::abs(y1 - y0) > std::abs(x1 - x0);
 
 		//check line's slop
 		if (steep)
@@ -452,18 +471,18 @@ namespace SoftRenderer
 			std::swap(y0, y1);
 		}
 
-		int dx = x1 - x0;
-		int dy = y1 - y0;
+		int32_t dx = x1 - x0;
+		int32_t dy = y1 - y0;
 
-		int d2x = dx << 1;
-		int d2y = dy << 1; 
-		int d2xd2y = d2x - d2y;
+		int32_t d2x = dx << 1;
+		int32_t d2y = dy << 1; 
+		int32_t d2xd2y = d2x - d2y;
 
-		int x = x0;
-		int y = y0;
+		int32_t x = x0;
+		int32_t y = y0;
 
-		int p = dx - d2y;
-		for (int i = 0; i <= dx; ++i)
+		int32_t p = dx - d2y;
+		for (int32_t i = 0; i <= dx; ++i)
 		{
 			if (steep)
 			{
