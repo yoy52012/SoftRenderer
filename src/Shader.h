@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <iostream>
 
 #include <glm/glm.hpp>
 #include <glm/gtx/compatibility.hpp>
@@ -103,32 +104,32 @@ namespace SoftRenderer
 
 	struct BaseShaderAttributes
 	{
-		glm::vec3 position;
-		glm::vec2 textureCoord;
-		glm::vec3 normal;
-		glm::vec3 tangent;
+		glm::vec3 aPosition;
+		glm::vec2 aTextureCoord;
+		glm::vec3 aNormal;
+		glm::vec3 aTangent;
 	};
 
 	struct BaseShaderUniforms
 	{
-		glm::mat4 modelMatrix;
-		glm::mat4 modelViewProjectMatrix;
-		glm::mat4 inverseTransposeModelMatrix;
+		glm::mat4 uModelMatrix;
+		glm::mat4 uModelViewProjectMatrix;
+		glm::mat4 uInverseTransposeModelMatrix;
 
-		glm::vec3 lightPosition;
-		glm::vec3 cameraPostion;
+		glm::vec3 uLightPosition;
+		glm::vec3 uCameraPostion;
+
+		Sampler2D uAlbedoMap;
 	};
 
 	struct BaseShaderVaryings
 	{
-
+		glm::vec2 vTexCoord;
 	};
 
-	class BaseShader
+	struct BaseShader
 	{
 	public:
-		BaseShaderUniforms* uniforms = nullptr;
-		
 		virtual void shaderMain() = 0;
 	};
 
@@ -136,11 +137,12 @@ namespace SoftRenderer
 	{
 	public:
 		// Built-in variables
-		glm::vec4 gl_Postion;
+		glm::vec4 gl_Position;
 
 		// Custom variables
-		BaseShaderAttributes* attributes;
-		BaseShaderVaryings*   varyings;
+		BaseShaderAttributes* attributes = nullptr;
+        BaseShaderUniforms*   uniforms = nullptr;
+		BaseShaderVaryings*   varyings = nullptr;
 
 		void shaderMain() override
 		{
@@ -148,9 +150,11 @@ namespace SoftRenderer
 			auto* u = (BaseShaderUniforms*)uniforms;
 			auto* v = (BaseShaderVaryings*)varyings;
 
-			glm::vec4 position = glm::vec4(a->position, 1.0f);
-			gl_Postion = u->modelViewProjectMatrix * position;
+			glm::vec4 position = glm::vec4(a->aPosition, 1.0f);
 
+			gl_Position = u->uModelViewProjectMatrix * position;
+
+			varyings->vTexCoord = a->aTextureCoord;
 		}
 	};
 
@@ -158,14 +162,18 @@ namespace SoftRenderer
 	{
 	public:
 
-		// Built-in variables
+		// inner input
 		glm::vec4 gl_FragCoord;
-		glm::vec4 gl_FragColor;
 		bool gl_FrontFacing;
+
+		// inner output
 		float gl_FragDepth;
+		glm::vec4 gl_FragColor;
+		bool discard = false;
 
 		// Custom variables
-		BaseShaderVaryings* varyings;
+        BaseShaderUniforms* uniforms = nullptr;
+		BaseShaderVaryings* varyings = nullptr;
 
 		void shaderMain() override
 		{
@@ -173,10 +181,32 @@ namespace SoftRenderer
 		}
 	};
 
-	struct ShaderContext
+	struct Program
 	{
+		std::shared_ptr<BaseShaderUniforms> uniforms;
 		std::shared_ptr<BaseVertexShader> vertexShader;
 		std::shared_ptr<BaseFragmentShader> fragmentShader;
+	
+		bool link()
+		{
+			if (vertexShader == nullptr)
+			{
+				std::cerr << "Program link error : Vertex shader is null." << std::endl;
+				return false;
+			}
+
+			if (fragmentShader == nullptr)
+			{
+				std::cerr << "Program link error : Fragment shade is null." << std::endl;
+				return false;
+			}
+				
+			vertexShader->uniforms = uniforms.get();
+			fragmentShader->uniforms = uniforms.get();
+
+			return true;
+		}
+
 	};
 
 }

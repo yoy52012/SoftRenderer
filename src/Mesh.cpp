@@ -227,10 +227,12 @@ namespace SoftRenderer
 		std::vector<glm::vec3> normals;
 		std::vector<glm::vec2> uvs;
 
-		for (int iy = 0; iy < gridY1; iy++) {
+		for (int iy = 0; iy < gridY1; iy++) 
+		{
 			float y = iy * segment_height - height_half;
 
-			for (int ix = 0; ix < gridX1; ix++) {
+			for (int ix = 0; ix < gridX1; ix++) 
+			{
 				float x = ix * segment_width - width_half;
 				positions.push_back(glm::vec3(x, -y, 0));
 				normals.push_back(glm::vec3(0, 0, 1));

@@ -538,17 +538,27 @@ void mouseButtonCallback(int button, int action, int mods)
 	std::cout << b << " is " << act << std::endl;
 }
 
+#include <chrono>
+#include <sstream>
+#include <iostream>
+#include <iomanip>
+
+std::chrono::high_resolution_clock::time_point m_lastTimePoint;
+int64_t m_deltaTime = 0;
+int64_t m_fpsTimeRecorder = 0;
+int64_t m_fpsCounter = 0;
+unsigned int m_fps = 0;
+
+
 void main()
 {
-
-
 	//setupWindow(nullptr, WndProc);
-	SoftRenderer::Window* window = SoftRenderer::Window::create("hello", 500, 500);
+	Window* window = Window::create("hello", 500, 500);
 
 	window->setKeyCallback(std::bind(&keyCallback, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
 	window->setMouseButtonCallback(std::bind(&mouseButtonCallback, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 
-	window->setWindowTitle("Hello");
+	window->setWindowTitle("SoftRenderer");
 	
 
 	//line(100, 100, 300, 300, frameBuffer, glm::vec4(0.0, 1.0, 0.0, 1.0));
@@ -574,7 +584,7 @@ void main()
 	//rasterizeTriangle(v0, v1, v2, frameBuffer, glm::vec4(1.0, 1.0, 0.0, 1.0));
 	//rasterizeTriangle(v3, v4, v5, frameBuffer, glm::vec4(1.0, 1.0, 0.0, 1.0));
 
-	glm::vec3 position(0.0f, 2.0f, 3.0f);
+	glm::vec3 position(0.0f, 0.0f, 3.0f);
 	glm::vec3 target(0.0f, 0.0f, 0.0f);
 	Camera camera(position, target, 1.0);
 
@@ -614,17 +624,47 @@ void main()
 	Graphics render;
 	render.init(500, 500);
 
+    std::string a = "Cube_BaseColor.png";
+    Image::Ptr image = Image::create(IMAGE_DIR + a);
+
+    auto texture = std::make_shared<Texture>();
+    texture->initFromImage(image);
+
+    std::shared_ptr<Program> program = std::make_shared<Program>();
+
+    std::shared_ptr<BaseVertexShader> vertexShader = std::make_shared<BaseVertexShader>();
+    std::shared_ptr<BaseFragmentShader> fragmentShader = std::make_shared<BaseFragmentShader>();
+
+    std::shared_ptr<BaseShaderUniforms> uniforms = std::make_shared<BaseShaderUniforms>();
+
+    //uniforms->uAlbedoMap.bindTexture(texture);
+
+    program->vertexShader = vertexShader;
+    program->fragmentShader = fragmentShader;
+
+    program->uniforms = uniforms;
+
+    program->link();
+
+    render.useProgram(program);
+
 	while (!window->should_close())
 	{
 		render.clearBuffer(glm::vec4(0.1, 0.1, 0.1, 1.0));
 
-		render.setModelMatrix(modelMat);
-		render.setViewMatrix(camera.getViewMatrix());
-		render.setProjMatrix(camera.getProjMatrix());
+		//render.setModelMatrix(modelMat);
+		//render.setViewMatrix(camera.getViewMatrix());
+		//render.setProjMatrix(camera.getProjMatrix());
+
+
+        uniforms->uModelMatrix = modelMat;
+        uniforms->uModelViewProjectMatrix = camera.getProjMatrix() * camera.getViewMatrix() * modelMat;
+        uniforms->uInverseTransposeModelMatrix = glm::mat3(glm::transpose(glm::inverse(modelMat)));
+        uniforms->uCameraPostion = glm::vec3(0);
 			
 		//render.drawTriangle(v1, v2, v3);
 		//render.drawTriangle(v4, v5, v6);
-		render.drawMesh(mesh2.get());
+		render.drawMesh1(mesh2.get());
 
 		//render.drawLine(glm::vec2(100, 10), glm::vec2(400, 40));
 
@@ -640,15 +680,33 @@ void main()
 		auto time = std::chrono::duration<double>(now - start).count();
 		//std::cout << time << std::endl;
 
-		float degree = std::sinf(count) * 2.0f * 3.14159f;
+		float degree = std::sinf(count) * 0.5f * 3.14159f;
 		count += 0.001f;
-		modelMat = glm::rotate(glm::mat4(1.0f), degree, glm::vec3(0.0f, 1.0f, 0.0f));
+		//modelMat = glm::rotate(glm::mat4(1.0f), degree, glm::vec3(0.0f, 1.0f, 0.0f));
 
 		window->drawBuffer(render.getOutput());
 
 		window->pollEvent();
+
+        m_deltaTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - m_lastTimePoint).count();
+        m_lastTimePoint = std::chrono::high_resolution_clock::now();
+
+        //FPS counting
+        {
+            m_fpsTimeRecorder += m_deltaTime;
+            ++m_fpsCounter;
+            if (m_fpsTimeRecorder > 1000)
+            {
+                m_fps = static_cast<unsigned int>(m_fpsCounter);
+                m_fpsCounter = 0.0f;
+                m_fpsTimeRecorder = 0.0f;
+
+                std::stringstream ss;
+                ss << " FPS:" << std::setiosflags(std::ios::left) << std::setw(3) << m_fps;
+
+				std::cout << ss.str() << std::endl;
+            }
+        }
 	}
-
-
 
 }

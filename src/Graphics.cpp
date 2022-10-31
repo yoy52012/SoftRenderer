@@ -5,8 +5,13 @@
 #include <array>
 #include "Utils.h"
 
+
+typedef glm::aligned_vec4 vec4a;
+typedef glm::packed_vec4 vec4p;
+
 namespace SoftRenderer
 {
+
 	void Graphics::init(int width, int height)
 	{
 		mWidth = width;
@@ -22,17 +27,13 @@ namespace SoftRenderer
 		mViewport.width  = (float)width;
 		mViewport.height = (float)height;
 
-		mShader = std::make_shared<Shader>();
-
-		std::string a = "Cube_BaseColor.png";
-		Image::Ptr image = Image::create(IMAGE_DIR + a);
-
-		
+		// set depth range
+		mDepthRange.n = 0.01f;
+		mDepthRange.f = 1000.f;
 
 
-		Texture* texture = new Texture();
-		texture->initFromImage(image);
-		mShader->mUniforms.albedoMap.bindTexture(texture);
+
+
 
 		//Texture2D::Ptr albedo = std::make_shared<Texture2D>();
 		//albedo->initFromImage(image);
@@ -94,6 +95,25 @@ namespace SoftRenderer
 		}
 	}
 
+	void Graphics::drawMesh1(const Mesh* mesh)
+	{
+		for (const auto subMesh : mesh->subMeshs)
+		{
+            if (subMesh->indices.empty() || subMesh->vertices.empty())
+                return;
+
+			mRenderContex.createVertexBuffer(subMesh.get());
+			mRenderContex.allocVertexVaringMemory(2);
+
+            processVertexShader();
+            processFrustumClip();
+            processPerspectiveDivide();
+            processViewportTransform();
+            processBackFaceCulling();
+            processRasterization();
+		}
+	}
+
 	void Graphics::clearBuffer(const glm::vec4& color)
 	{
 		mBackBuffer->clearColor(color);
@@ -141,6 +161,14 @@ namespace SoftRenderer
 		return glm::vec3(x, y, z);
 	}
 
+	void Graphics::perspectiveDivide1(glm::vec4& pos)
+	{
+        float invW = 1.0f / pos.w;
+        pos.x *= invW;
+        pos.y *= invW;
+        pos.z *= invW;
+	}
+
 	/*
 	 * for viewport transformation, see subsection 2.12.1 of
 	 * https://www.khronos.org/registry/OpenGL/specs/es/2.0/es_full_spec_2.0.pdf
@@ -152,6 +180,50 @@ namespace SoftRenderer
 		float z = (ndcCoord.z + 1.0f) * 0.5f;
 		return glm::vec3(x, y, z);
 	}
+
+	void Graphics::viewportTransform1(glm::vec4& pos)
+	{
+        pos.x = (pos.x + 1.0f) * 0.5f * mViewport.width  + mViewport.x;
+        pos.y = (pos.y + 1.0f) * 0.5f * mViewport.height + mViewport.y;
+
+        // Reversed-Z  [-1, 1] -> [1, 0]
+		// -(f-n)/2 * z + (f+n)/2
+        pos.z = 0.5f * ((mDepthRange.f + mDepthRange.n) - (mDepthRange.f - mDepthRange.n) * pos.z);
+	}
+
+	void Graphics::PerspectiveCorrectInterpolation(FragmentQuad& quad)
+	{
+		glm::aligned_vec4* vert = quad.triangularVertexScreenPositionFlat;
+
+        for (auto& pixel : quad.pixels) 
+		{
+            auto& bc = pixel.barycentric;
+
+            // barycentric correction
+            bc /= quad.triangularVertexClipZ;
+            bc /= (bc.x + bc.y + bc.z);
+
+            // interpolate z, w
+            pixel.position.z = glm::dot(vert[2], bc);
+            pixel.position.w = glm::dot(vert[3], bc);
+        }
+	}
+
+    void Graphics::VaryingInterpolate(float* out_vary,
+        const float* in_varyings[],
+        size_t elem_cnt,
+        glm::aligned_vec4& bc) 
+		{
+        const float* in_vary0 = in_varyings[0];
+        const float* in_vary1 = in_varyings[1];
+        const float* in_vary2 = in_varyings[2];
+
+        for (int i = 0; i < elem_cnt; i++) 
+		{
+			auto a = glm::vec4(*(in_vary0 + i), *(in_vary1 + i), *(in_vary2 + i), 1.0f);
+            out_vary[i] = glm::dot(glm::vec4(bc.x, bc.y, bc.z, bc.w), a);
+        }
+		}
 
 	float Graphics::interpolateDepth(const std::array<float, 3>& screenDepth, const glm::vec3& weight)
 	{
@@ -382,6 +454,86 @@ namespace SoftRenderer
             }
 	}
 
+	void Graphics::processVertexShader()
+	{
+        auto vertexShader = mProgram->vertexShader;
+
+        for (auto& vertex : mRenderContex.vertexBuffer) 
+		{
+			vertexShader->attributes = (BaseShaderAttributes*)&vertex.vertex;
+
+            if (vertex.varyings == nullptr)
+			{
+				vertexShader->varyings = nullptr;
+            }
+            else 
+			{
+				vertexShader->varyings = (BaseShaderVaryings*)vertex.varyings;
+            }
+
+			vertexShader->shaderMain();
+
+			vertex.position = vertexShader->gl_Position;
+        }
+
+	}
+
+	void Graphics::processFrustumClip()
+	{
+	}
+
+	void Graphics::processPerspectiveDivide()
+	{
+        for (auto& vertex : mRenderContex.vertexBuffer)
+		{
+            perspectiveDivide1(vertex.position);
+        }
+	}
+
+	void Graphics::processViewportTransform()
+	{
+		for (auto& vertex : mRenderContex.vertexBuffer)
+		{
+            viewportTransform1(vertex.position);
+        }
+	}
+
+	void Graphics::processBackFaceCulling()
+	{
+		for (auto& face : mRenderContex.faceBuffer)
+		{
+			if (face.discard)
+			{
+				continue;
+			}
+
+			glm::vec4 v0 = mRenderContex.vertexBuffer[face.indices[0]].position;
+			glm::vec4 v1 = mRenderContex.vertexBuffer[face.indices[1]].position;
+			glm::vec4 v2 = mRenderContex.vertexBuffer[face.indices[2]].position;
+
+			glm::vec3 n = glm::cross(glm::vec3(v1 - v0), glm::vec3(v2- v0));
+			float d = glm::dot(n, glm::vec3(0, 0, -1));
+
+			face.frontFacing = d > 0;
+			if (mEnableBackfaceCull)
+			{
+				face.discard = !face.frontFacing;  // discard back face
+			}
+		}
+	}
+
+	void Graphics::processRasterization()
+	{
+        for (auto& face : mRenderContex.faceBuffer) 
+		{
+            if (!face.discard) 
+			{
+				rasterizeTriangle4(face);
+            }
+        }
+	}
+
+
 	void Graphics::rasterizeTriangle(const Shader::VertexData& vertex0, const Shader::VertexData& vertex1, const Shader::VertexData& vertex2)
 	{
 		auto v0 = glm::ivec2(vertex0.screenPosition.x, vertex0.screenPosition.y);
@@ -448,6 +600,317 @@ namespace SoftRenderer
 		}
 	}
 
+	bool sampling_is_inside(int32_t x, int32_t y, int32_t Cx1, int32_t Cx2, int32_t Cx3, int32_t boundingMaxX, int32_t boundingMaxY)
+	{
+        //Invalid fragment
+        if (x > boundingMaxX || y > boundingMaxY)
+        {
+            return false;
+        }
+
+		bool atLeastOneInside = false;
+
+        {
+            //Edge function
+            const float E1 = Cx1;
+            const float E2 = Cx2;
+            const float E3 = Cx3;
+
+            //Note: Counter-clockwise winding order
+            if (E1  <= 0 && E2 <= 0 && E3 <= 0)
+            {
+                atLeastOneInside = true;
+                //Note: each sampling point should have its own depth
+                //glm::vec3 uvw = glm::vec3(E2, E3, E1) * one_div_delta;
+            }
+        }
+
+        return atLeastOneInside;
+	}
+
+    bool Barycentric(glm::aligned_vec4* vert, glm::aligned_vec4& v0, glm::aligned_vec4& p, glm::aligned_vec4& bc)
+	{
+        glm::vec3 u = glm::cross(glm::vec3(vert[0]) - glm::vec3(v0.x, v0.x, p.x + 0.5f), glm::vec3(vert[1]) - glm::vec3(v0.y, v0.y, p.y + 0.5f));
+        if (std::abs(u.z) < 1.192092896e-07F) {
+            return false;
+        }
+
+        u /= u.z;
+        bc = { 1.f - (u.x + u.y), u.y, u.x, 0.f };
+
+        if (bc.x < 0 || bc.y < 0 || bc.z < 0) {
+            return false;
+        }
+
+        return true;
+    }
+
+    void Graphics::rasterizeTriangle4(FaceResource& face)
+    {
+        glm::aligned_vec4 screenPosition[3];
+        for (int32_t i = 0; i < 3; i++) 
+		{
+            auto& vertex = mRenderContex.vertexBuffer[face.indices[i]];
+			screenPosition[i] = vertex.position;
+        }
+
+        const glm::ivec2& A = glm::ivec2((int32_t)(screenPosition[0].x), (int32_t)(screenPosition[0].y));
+        const glm::ivec2& B = glm::ivec2((int32_t)(screenPosition[1].x), (int32_t)(screenPosition[1].y));
+        const glm::ivec2& C = glm::ivec2((int32_t)(screenPosition[2].x), (int32_t)(screenPosition[2].y));
+
+        //float Z[3] = { v0.screenPosition.z, v1.screenPosition.z, v2.screenPosition.z };
+
+        int32_t minX = std::max(std::min(A.x, std::min(B.x, C.x)), 0);
+        int32_t minY = std::max(std::min(A.y, std::min(B.y, C.y)), 0);
+        int32_t maxX = std::min(std::max(A.x, std::max(B.x, C.x)), mWidth - 1);
+        int32_t maxY = std::min(std::max(A.y, std::max(B.y, C.y)), mHeight - 1);
+
+        //I1 = Ay - By, I2 = By - Cy, I3 = Cy - Ay
+        int32_t I01 = A.y - B.y;
+        int32_t I02 = B.y - C.y;
+        int32_t I03 = C.y - A.y;
+
+        //J1 = Bx - Ax, J2 = Cx - Bx, J3 = Ax - Cx 
+        int32_t J01 = B.x - A.x;
+        int32_t J02 = C.x - B.x;
+        int32_t J03 = A.x - C.x;
+
+        //K1 = AxBy - AyBx, K2 = BxCy - ByCx, K3 = CxAy - CyAx
+        int32_t K01 = A.x * B.y - A.y * B.x;
+        int32_t K02 = B.x * C.y - B.y * C.x;
+        int32_t K03 = C.x * A.y - C.y * A.x;
+
+        //F1 = I1 * Px + J1 * Py + K1
+        //F2 = I2 * Px + J2 * Py + K2
+        //F3 = I3 * Px + J3 * Py + k3
+        int32_t F01 = (I01 * minX) + (J01 * minY) + K01;
+        int32_t F02 = (I02 * minX) + (J02 * minY) + K02;
+        int32_t F03 = (I03 * minX) + (J03 * minY) + K03;
+
+        // Area = 1/2 * |AB| * |AC| * sin(|AB|, |AC|) = 1/2 * (AxBy - AyBx + BxCy - ByCx + CxAy - CyAx) = F1 + F2 + F3
+		int32_t delta = F01 + F02 + F03;
+
+        //Degenerated to a line or a point
+        if (delta == 0)
+            return;
+
+        float oneDivideDelta = 1 / (float)delta;
+
+        //Z[1] = (Z[1] - Z[0]) * OneDivideDelta;
+        //Z[2] = (Z[2] - Z[0]) * OneDivideDelta;
+
+
+		int32_t Cy1 = F01, Cy2 = F02, Cy3 = F03;
+
+
+        auto block_size = (float)32;
+        int32_t blockCountX = (int32_t)((maxX - minX + block_size - 1.0f) / block_size);
+        int32_t blockCountY = (int32_t)((maxY - minY + block_size - 1.0f) / block_size);
+
+        for (int32_t blockY = 0; blockY < blockCountY; blockY++)
+        {
+            for (int32_t blockX = 0; blockX < blockCountX; blockX++)
+            {
+
+				thread_pool_.addTask([&, block_size, blockX, blockY](int32_t thread_id)
+				{
+                    FragmentQuad pixel_quad(8);
+
+					pixel_quad.front_facing = face.frontFacing;
+
+
+                    for (int32_t i = 0; i < 3; i++)
+					{
+                        auto& vertex = mRenderContex.vertexBuffer[face.indices[i]];
+						pixel_quad.triangularVertexScreenPosition[i] = vertex.position;
+                        pixel_quad.triangularVertexVarings[i] = vertex.varyings;
+                        pixel_quad.triangularVertexClipZ[i] = (mDepthRange.f + mDepthRange.n - vertex.position.z) * vertex.position.w;  // [far, near] -> [near, far]
+                    }
+
+                    const glm::aligned_vec4* triangularVertexScreenPosition = pixel_quad.triangularVertexScreenPosition;
+                    pixel_quad.triangularVertexScreenPositionFlat[0] = { triangularVertexScreenPosition[2].x, triangularVertexScreenPosition[1].x, triangularVertexScreenPosition[0].x, 0.f };
+                    pixel_quad.triangularVertexScreenPositionFlat[1] = { triangularVertexScreenPosition[2].y, triangularVertexScreenPosition[1].y, triangularVertexScreenPosition[0].y, 0.f };
+                    pixel_quad.triangularVertexScreenPositionFlat[2] = { triangularVertexScreenPosition[0].z, triangularVertexScreenPosition[1].z, triangularVertexScreenPosition[2].z, 0.f };
+                    pixel_quad.triangularVertexScreenPositionFlat[3] = { triangularVertexScreenPosition[0].w, triangularVertexScreenPosition[1].w, triangularVertexScreenPosition[2].w, 0.f };
+
+                    int32_t Dy1 = Cy1 + block_size * blockY * J01;
+                    int32_t Dy2 = Cy2 + block_size * blockY * J02;
+                    int32_t Dy3 = Cy3 + block_size * blockY * J03;
+
+                    // block rasterization
+                    int32_t blockStartX = (int32_t)(minX + blockX * block_size);
+                    int32_t blockStartY = (int32_t)(minY + blockY * block_size);
+
+                    for (int32_t y = blockStartY; y < blockStartY + block_size && y <= maxY; y += 2)
+                    {
+                        int32_t Dx1 = Dy1 + block_size * blockX * I01;
+                        int32_t Dx2 = Dy2 + block_size * blockX * I02;
+                        int32_t Dx3 = Dy3 + block_size * blockX * I03;
+
+                        for (int32_t x = blockStartX; x < blockStartX + block_size && x <= maxX; x += 2)
+                        {
+                            pixel_quad.init(x, y);
+
+                            bool inside0 = sampling_is_inside(x, y, Dx1, Dx2, Dx3, maxX, maxY);
+                            bool inside1 = sampling_is_inside(x + 1, y, Dx1 + I01, Dx2 + I02, Dx3 + I03, maxX, maxY);
+                            bool inside2 = sampling_is_inside(x, y + 1, Dx1 + J01, Dx2 + J02, Dx3 + J03, maxX, maxY);
+                            bool inside3 = sampling_is_inside(x + 1, y + 1, Dx1 + J01 + I01, Dx2 + J02 + I02, Dx3 + J03 + I03, maxX, maxY);
+
+                            if (inside0 || inside1 || inside2 || inside3)
+                            {
+
+                            if (inside0)
+                            {
+                                glm::vec3 uvw(Dx2, Dx3, Dx1);
+                                glm::vec3 weights = uvw * oneDivideDelta;
+                                pixel_quad.pixels[0].barycentric = glm::aligned_vec4(weights, 0.0f);
+                                //glm::aligned_vec4* vert = pixel_quad.vert_flat;
+                                //glm::aligned_vec4& v0 = pixel_quad.screen_pos[0];
+                                //Barycentric(vert, v0, pixel_quad.pixels[0].position, pixel_quad.pixels[0].barycentric);
+								pixel_quad.pixels[0].inside = true;
+							}
+							else
+							{
+                                glm::aligned_vec4* vert = pixel_quad.triangularVertexScreenPositionFlat;
+                                glm::aligned_vec4& v0 = pixel_quad.triangularVertexScreenPosition[0];
+								Barycentric(vert, v0, pixel_quad.pixels[0].position, pixel_quad.pixels[0].barycentric);
+								pixel_quad.pixels[0].inside = false;
+							}
+
+                            if (inside1)
+                            {
+								glm::vec3 uvw(Dx2 + I02, Dx3 + I03, Dx1 + I01);
+								glm::vec3 weights = uvw * oneDivideDelta;
+								pixel_quad.pixels[1].barycentric = glm::aligned_vec4(weights, 0.0f);
+                                //glm::aligned_vec4* vert = pixel_quad.vert_flat;
+                                //glm::aligned_vec4& v0 = pixel_quad.screen_pos[0];
+                                //Barycentric(vert, v0, pixel_quad.pixels[1].position, pixel_quad.pixels[1].barycentric);
+								pixel_quad.pixels[1].inside = true;
+							}
+							else
+							{
+                                glm::aligned_vec4* vert = pixel_quad.triangularVertexScreenPositionFlat;
+                                glm::aligned_vec4& v0 = pixel_quad.triangularVertexScreenPosition[0];
+                                Barycentric(vert, v0, pixel_quad.pixels[1].position, pixel_quad.pixels[1].barycentric);
+								pixel_quad.pixels[1].inside = false;
+							}
+
+                            if (inside2)
+                            {
+								glm::vec3 uvw(Dx2 + J02, Dx3 + J03, Dx1 + J01);
+								glm::vec3 weights = uvw * oneDivideDelta;
+								pixel_quad.pixels[2].barycentric = glm::aligned_vec4(weights, 0.0f);
+                                //glm::aligned_vec4* vert = pixel_quad.vert_flat;
+                                //glm::aligned_vec4& v0 = pixel_quad.screen_pos[0];
+                                //Barycentric(vert, v0, pixel_quad.pixels[2].position, pixel_quad.pixels[2].barycentric);
+								pixel_quad.pixels[2].inside = true;
+							}
+							else
+							{
+                                glm::aligned_vec4* vert = pixel_quad.triangularVertexScreenPositionFlat;
+                                glm::aligned_vec4& v0 = pixel_quad.triangularVertexScreenPosition[0];
+                                Barycentric(vert, v0, pixel_quad.pixels[2].position, pixel_quad.pixels[2].barycentric);
+								pixel_quad.pixels[2].inside = false;
+							}
+
+                            if (inside3)
+                            {
+                                glm::vec3 uvw(Dx2 + J02 + I02, Dx3 + J03 + I03, Dx1 + J01 + I01);
+                                glm::vec3 weights = uvw * oneDivideDelta;
+                                pixel_quad.pixels[3].barycentric = glm::aligned_vec4(weights, 0.0f);
+                                //glm::aligned_vec4* vert = pixel_quad.vert_flat;
+                                //glm::aligned_vec4& v0 = pixel_quad.screen_pos[0];
+                                //Barycentric(vert, v0, pixel_quad.pixels[3].position, pixel_quad.pixels[3].barycentric);
+								pixel_quad.pixels[3].inside = true;
+							}
+							else
+							{
+                                glm::aligned_vec4* vert = pixel_quad.triangularVertexScreenPositionFlat;
+                                glm::aligned_vec4& v0 = pixel_quad.triangularVertexScreenPosition[0];
+                                Barycentric(vert, v0, pixel_quad.pixels[3].position, pixel_quad.pixels[3].barycentric);
+								pixel_quad.pixels[3].inside = false;
+							}
+
+                            // barycentric correction
+                            PerspectiveCorrectInterpolation(pixel_quad);
+
+                            // varying interpolate
+							// note: all quad pixels should perform varying interpolate to enable varying partial derivative
+                            for (auto& pixel : pixel_quad.pixels) 
+							{
+                                VaryingInterpolate((float*)pixel.interpolatedVaryings, pixel_quad.triangularVertexVarings, mRenderContex.varyingsSize, pixel.barycentric);
+							}
+
+                            // pixel shading
+                            for (auto& pixel : pixel_quad.pixels) 
+							{
+                                glm::aligned_vec4& pos = pixel.position;
+                                if (!pixel.inside) 
+								{
+                                    continue;
+                                }
+
+								glm::vec2 a = pixel.barycentric.x * glm::vec2(1.0, 1.0) + pixel.barycentric.y * glm::vec2(0.0, 0.0) + pixel.barycentric.z * glm::vec2(0.0, 1.0);
+
+                                // fragment shader
+								BaseShaderVaryings* varyings = (BaseShaderVaryings*)pixel.interpolatedVaryings;
+
+								
+								mBackBuffer->writeColor(pos.x, pos.y, glm::vec4(varyings->vTexCoord,  0.0, 1.0));
+								
+                            }
+							}
+
+                            Dx1 += 2 * I01; Dx2 += 2 * I02; Dx3 += 2 * I03;
+                        }
+                        Dy1 += 2 * J01;	Dy2 += 2 * J02; Dy3 += 2 * J03;
+                    }
+				});
+            }
+        }
+
+		thread_pool_.waitTasksFinish();
+
+        //for (int y = minY; y < maxY; ++y)
+        //{
+        //    int Cx1 = Cy1;
+        //    int Cx2 = Cy2;
+        //    int Cx3 = Cy3;
+
+        //    //float depth = Z[0] + Cx3 * Z[1] + Cx1 * Z[2];
+
+        //    for (int x = minX; x < maxX; ++x)
+        //    {
+        //        const int mask = Cx1 | Cx2 | Cx3;
+        //        if (mask >= 0)
+        //        {
+        //            glm::vec3 weights = glm::vec3(Cx2 * oneDivideDelta, Cx3 * oneDivideDelta, Cx1 * oneDivideDelta);
+
+        //            //auto v = Shader::VertexData::barycentricLerp(v0, v1, v2, weights);
+
+        //            //std::array<glm::vec2, 3> texcoords = { v0.texcoord, v1.texcoord, v2.texcoord };
+        //            //std::array<float, 3> reclipW = { v0.clipW, v1.clipW, v2.clipW };
+
+        //            //v.texcoord = interpolateTexcoord(texcoords, weights, reclipW);
+        //            //v.texcoord /= v.clipW;
+
+        //            mBackBuffer->writeColor(x, y, glm::vec4(0.0f, 1.0f, 0.0f, 1.0f));
+        //            //mBackBuffer->writeColor(x, y, mShader->fragmentShader(v));
+
+        //            //mBackBuffer->WriteDepth(x, y, depth);
+        //        }
+
+        //        Cx1 += I01;
+        //        Cx2 += I02;
+        //        Cx3 += I03;
+        //    }
+
+        //    Cy1 += J01;
+        //    Cy2 += J02;
+        //    Cy3 += J03;
+        //}
+    }
+
 	void Graphics::drawLine(const glm::vec2& v0, const glm::vec2& v1)
 	{
         int32_t x0 = (int32_t)v0.x;
@@ -503,6 +966,11 @@ namespace SoftRenderer
 			}
 			x += 1;
 		}
+	}
+
+	void Graphics::useProgram(std::shared_ptr<Program> program)
+	{
+		mProgram = program;
 	}
 }
 
