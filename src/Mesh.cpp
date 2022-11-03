@@ -275,9 +275,9 @@ namespace SoftRenderer
 	std::shared_ptr<Mesh> Mesh::createBoxMesh()
 	{
 		glm::vec3 size(1.0f, 1.0f, 1.0f);
-		int subdivide_h = 1;
-		int subdivide_w = 1;
-		int subdivide_d = 1;
+		int subdivide_h = 0;
+		int subdivide_w = 0;
+		int subdivide_d = 0;
 
 		int i, j, prevrow, thisrow, point;
 		float x, y, z;
@@ -502,13 +502,13 @@ namespace SoftRenderer
 
 		int numberOfVertices = 0;
 
-		auto buildPlane = [&](int u, int v, int w, float udir, float vdir, int width, int height, int depth, int gridX, int gridY) {
-			const int segmentWidth = width / gridX;
-			const int segmentHeight = height / gridY;
+		auto buildPlane = [&](int u, int v, int w, float udir, float vdir, float width, float height, float depth, int gridX, int gridY) {
+			const float segmentWidth = width / gridX;
+			const float segmentHeight = height / gridY;
 
-			const int widthHalf = width / 2;
-			const int heightHalf = height / 2;
-			const int depthHalf = depth / 2;
+			const float widthHalf = width / 2;
+			const float heightHalf = height / 2;
+			const float depthHalf = depth / 2;
 
 			const int gridX1 = gridX + 1;
 			const int gridY1 = gridY + 1;
@@ -518,11 +518,12 @@ namespace SoftRenderer
 			glm::vec3 vector;
 
 			for (int iy = 0; iy < gridY1; iy++) {
-				const int y = iy * segmentHeight - heightHalf;
+
+				const float y = iy * segmentHeight - heightHalf;
 
 				for (int  ix = 0; ix < gridX1; ix++) {
 
-					const int x = ix * segmentWidth - widthHalf;
+					const float x = ix * segmentWidth - widthHalf;
 
 					// set values to correct vector component
 					vector[u] = x * udir;
@@ -560,12 +561,13 @@ namespace SoftRenderer
 					indices.push_back(a);
 					indices.push_back(b);
 					indices.push_back(d);
+
 					indices.push_back(b);
 					indices.push_back(c);
 					indices.push_back(d);
 
 					// increase counter
-					numberOfVertices += vertexCounter;
+					//numberOfVertices += 6;
 				}
 
 			}
@@ -574,14 +576,24 @@ namespace SoftRenderer
 			numberOfVertices += vertexCounter;
 		};
 
-		buildPlane(2, 1, 0, -1, -1, depth, height, width, depthSegments, heightSegments); // px
-		buildPlane(2, 1, 0, 1, -1, depth, height, -width, depthSegments, heightSegments); // nx
-		buildPlane(0, 2, 2, 1, 1, width, depth, height, widthSegments, depthSegments); // py
-		buildPlane(0, 2, 1, 1, -1, width, depth, -height, widthSegments, depthSegments); // ny
-		buildPlane(0, 1, 2, 1, -1, width, height, depth, widthSegments, heightSegments); // pz
-		buildPlane(0, 1, 2, -1, -1, width, height, -depth, widthSegments, heightSegments); // nz
+		buildPlane(2, 1, 0, -1, -1, depth, height, width, depthSegments, heightSegments); // right
+		buildPlane(2, 1, 0, 1, -1, depth, height, -width, depthSegments, heightSegments); // left
+		buildPlane(0, 2, 1, 1, 1, width, depth, height, widthSegments, depthSegments); // top
+		buildPlane(0, 2, 1, 1, -1, width, depth, -height, widthSegments, depthSegments); // bottom
+		buildPlane(0, 1, 2, 1, -1, width, height, depth, widthSegments, heightSegments); // front
+		buildPlane(0, 1, 2, -1, -1, width, height, -depth, widthSegments, heightSegments); // back
 
-		return std::make_shared<Mesh>();
+		std::shared_ptr<SubMesh> submesh = std::make_shared<SubMesh>();
+		submesh->setPositions(vertices);
+		submesh->setNormals(normals);
+		submesh->setUvs(uvs);
+		submesh->setIndices(indices);
+		submesh->build();
+
+		std::shared_ptr<Mesh> mesh = std::make_shared<Mesh>();
+        mesh->addSubMesh(submesh);
+
+		return mesh;
 	}
 }
 

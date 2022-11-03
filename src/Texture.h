@@ -296,8 +296,6 @@ namespace SoftRenderer
 	};
 
 	
-
-
     class Sampler2D : public BaseSampler2D
 	{
     public:
@@ -318,7 +316,4 @@ namespace SoftRenderer
         }
     };
 
-
-
-	
 }

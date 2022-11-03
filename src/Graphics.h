@@ -16,8 +16,6 @@ namespace SoftRenderer
 {
 #define SOFTGL_ALIGNMENT 32
 
-
-
     class Memory
     {
     public:
@@ -110,24 +108,26 @@ namespace SoftRenderer
              */
             Fragment pixels[4];
 
+            BaseFragmentShader frag_shader;
+
             // Triangular vertex screen space position
             glm::aligned_vec4 triangularVertexScreenPosition[3];
             glm::aligned_vec4 triangularVertexScreenPositionFlat[4];
-            glm::aligned_vec4 triangularVertexClipZ = glm::aligned_vec4(1.0f);;
+            glm::aligned_vec4 triangularVertexClipZ = glm::aligned_vec4(1.0f);
             const float* triangularVertexVarings[3];
 
             std::shared_ptr<float> interpolatedVaryingsBuffer = nullptr;
 
             bool front_facing = true;
 
-            FragmentQuad(size_t varyings_aligned_size = 0)
+            FragmentQuad(size_t varyingsAlignedSize = 0)
             {
-                if (varyings_aligned_size > 0) 
+                if (varyingsAlignedSize > 0) 
                 {
-                    interpolatedVaryingsBuffer = std::shared_ptr<float>((float*)Memory::alignedMalloc(4 * varyings_aligned_size), [](const float* ptr) { Memory::alignedFree((void*)ptr); });
+                    interpolatedVaryingsBuffer = std::shared_ptr<float>((float*)Memory::alignedMalloc(4 * varyingsAlignedSize), [](const float* ptr) { Memory::alignedFree((void*)ptr); });
                     for (int i = 0; i < 4; i++) 
                     {
-                        pixels[i].interpolatedVaryings = interpolatedVaryingsBuffer.get() + i * varyings_aligned_size / sizeof(float);
+                        pixels[i].interpolatedVaryings = interpolatedVaryingsBuffer.get() + i * varyingsAlignedSize / 4;
                     }
                 }
             }
@@ -162,32 +162,37 @@ namespace SoftRenderer
                 return SOFTGL_ALIGNMENT * std::ceil(varySize * sizeof(float) / (float)SOFTGL_ALIGNMENT);
             }
 
-            void createVertexBuffer(const SubMesh* mesh)
+            void createVertexBuffer(const std::vector<Vertex>& vertices)
             {
-                const size_t vertexCount = mesh->vertices.size();
+                const size_t vertexCount = vertices.size();
                 vertexBuffer.resize(vertexCount);
 
                 for (int32_t i = 0; i < vertexCount; ++i)
                 {
                     vertexBuffer[i].id = i;
-                    vertexBuffer[i].vertex = mesh->vertices[i];
+                    vertexBuffer[i].vertex = vertices[i];
+                    vertexBuffer[i].position = glm::vec4(0);
                 }
+            }
 
-                const size_t faceCount = mesh->indices.size() / 3;
+            void createIndexBuffer(const std::vector<int>& indices)
+            {
+                const size_t faceCount = indices.size() / 3;
                 faceBuffer.resize(faceCount);
 
                 for (int32_t i = 0; i < faceCount; ++i)
                 {
-                    faceBuffer[i].indices[0] = mesh->indices[i * 3 + 0];
-                    faceBuffer[i].indices[1] = mesh->indices[i * 3 + 1];
-                    faceBuffer[i].indices[2] = mesh->indices[i * 3 + 2];
+                    faceBuffer[i].indices[0] = indices[i * 3 + 0];
+                    faceBuffer[i].indices[1] = indices[i * 3 + 1];
+                    faceBuffer[i].indices[2] = indices[i * 3 + 2];
+                    faceBuffer[i].discard = false;
                 }
             }
 
-            void allocVertexVaringMemory(size_t varySize = 0)
+            void allocVertexVaringMemory(size_t varyCount = 0)
             {
-                varyingsSize = varySize;
-                varyingsAlignedSize = calculateVaryingsAlignedSize(varySize);
+                varyingsCount = varyCount;
+                varyingsAlignedSize = calculateVaryingsAlignedSize(varyCount);
                 varyingsBuffer = nullptr;
 
                 if (varyingsAlignedSize > 0)
@@ -205,7 +210,7 @@ namespace SoftRenderer
             VertexBuffer vertexBuffer;
             FaceBuffer faceBuffer;
 
-            size_t varyingsSize = 0;
+            size_t varyingsCount = 0;
             size_t varyingsAlignedSize = 0;
             std::shared_ptr<float> varyingsBuffer = nullptr;
         };
@@ -238,6 +243,7 @@ namespace SoftRenderer
         void useProgram(std::shared_ptr<Program> program);
 
     private:
+        void uploadVertexData(const std::vector<Vertex>& vertices, const std::vector<int>& indices);
 
         void processVertexShader();
 
