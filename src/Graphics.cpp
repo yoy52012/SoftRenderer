@@ -719,7 +719,7 @@ namespace SoftRenderer
             for (int32_t blockX = 0; blockX < blockCountX; blockX++)
             {
 
-                thread_pool_.addTask([&, block_size, blockX, blockY](int32_t thread_id)
+                thread_pool_.push_task([&, block_size, blockX, blockY]
                 {
                     FragmentQuad pixel_quad(mRenderContex.varyingsAlignedSize);
 
@@ -895,7 +895,7 @@ namespace SoftRenderer
             }
         }
 
-        thread_pool_.waitTasksFinish();
+        thread_pool_.wait_for_tasks();
 
         //for (int y = minY; y < maxY; ++y)
         //{

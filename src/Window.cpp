@@ -640,7 +640,7 @@ namespace SoftRenderer
 
             if (action == InputAction::PRESS && m_key_action[key] == InputAction::PRESS)
             {
-                repeated == true;
+                repeated = true;
             }
 
             if (repeated)

@@ -1,35 +1,47 @@
-﻿cmake_minimum_required (VERSION 3.10)
+﻿cmake_minimum_required (VERSION 3.12)
+set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 project ("SoftRenderer")
 
-set(CMAKE_CXX_STANDARD 11)
+# if(MSVC)
+#   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /WX")
+# else()
+#   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
+# endif()
+
 set(THIRD_PARTY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty")
 
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
 include_directories(
+        "${THIRD_PARTY_DIR}/threadpool"
         "${THIRD_PARTY_DIR}/glm"
-        "${THIRD_PARTY_DIR}/assimp/include"
-        "${THIRD_PARTY_DIR}/assimp/contrib"
-        "${CMAKE_CURRENT_BINARY_DIR}/third_party/assimp/include"
+        #"${THIRD_PARTY_DIR}/assimp/include"
+        #"${THIRD_PARTY_DIR}/assimp/contrib"
+        #"${CMAKE_CURRENT_BINARY_DIR}/third_party/assimp/include"
         "${THIRD_PARTY_DIR}/stb"
         "${CMAKE_CURRENT_SOURCE_DIR}/src"
 )
 
+add_definitions( -DGLM_FORCE_ALIGNED_GENTYPES)
+add_definitions( -DGLM_FORCE_INLINE)
+
 add_definitions(-DRESOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/resource")
 
 # assimp
-set(BUILD_SHARED_LIBS OFF)
-set(ASSIMP_NO_EXPORT ON)
-set(ASSIMP_BUILD_TESTS OFF)
-set(ASSIMP_INSTALL OFF)
-set(ASSIMP_BUILD_ASSIMP_TOOLS OFF)
-set(ASSIMP_BUILD_ZLIB ON)
-
-set(ASSIMP_BUILD_ALL_IMPORTERS_BY_DEFAULT FALSE)
-set(ASSIMP_BUILD_OBJ_IMPORTER TRUE)
-set(ASSIMP_BUILD_GLTF_IMPORTER TRUE)
-
-add_subdirectory(${THIRD_PARTY_DIR}/assimp)
-
-add_definitions(-DGLM_FORCE_ALIGNED_GENTYPES)
+#set(BUILD_SHARED_LIBS OFF)
+#set(ASSIMP_NO_EXPORT ON)
+#set(ASSIMP_BUILD_TESTS OFF)
+#set(ASSIMP_INSTALL OFF)
+#set(ASSIMP_BUILD_ASSIMP_TOOLS OFF)
+#set(ASSIMP_BUILD_ZLIB ON)
+#
+#set(ASSIMP_BUILD_ALL_IMPORTERS_BY_DEFAULT FALSE)
+#set(ASSIMP_BUILD_OBJ_IMPORTER TRUE)
+#set(ASSIMP_BUILD_GLTF_IMPORTER TRUE)
+#
+#add_subdirectory(${THIRD_PARTY_DIR}/assimp)
 
 # main src
 file(GLOB SOFTRENDERER_SRC
@@ -42,13 +54,13 @@ file(GLOB SOFTRENDERER_SRC
         ${CMAKE_CURRENT_SOURCE_DIR}/src/MathUtils.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Mesh.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Pipeline.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/Program.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Render.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Shader.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/SoftRender.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Texture.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Window.cpp
         )
+
 
 
 add_executable(SoftRenderer
@@ -59,11 +71,11 @@ add_executable(SoftRenderer
 if (WIN32)
     if (MSVC)
         target_link_libraries(SoftRenderer
-                assimp
+                #assimp
                 )
     else ()
         target_link_libraries(SoftRenderer
-                assimp
+                #assimp
                 )
     endif ()
 endif ()

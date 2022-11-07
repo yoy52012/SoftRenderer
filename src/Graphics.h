@@ -1,13 +1,12 @@
 #pragma once
 
+
 #include "Mesh.h"
 #include "Shader.h"
 #include "FrameBuffer.h"
-#include "ThreadPool.h"
 
-#define GLM_FORCE_INLINE
-#define GLM_FORCE_AVX2
-#define GLM_FORCE_ALIGNED_GENTYPES
+#include <BS_thread_pool_light.hpp>
+
 #include <glm/glm.hpp>
 #include <glm/gtc/type_aligned.hpp>
 
@@ -93,8 +92,8 @@ namespace SoftRenderer
 
         struct Fragment 
         {
-            glm::aligned_vec4 position;
-            glm::aligned_vec4 barycentric;
+            glm::aligned_vec4 position = glm::aligned_vec4(0);
+            glm::aligned_vec4 barycentric = glm::aligned_vec4(0);
             float* interpolatedVaryings;
             bool inside = false;
         };
@@ -310,6 +309,6 @@ namespace SoftRenderer
 
         std::shared_ptr<Program> mProgram = nullptr;
 
-        ThreadPool thread_pool_;
+        BS::thread_pool_light thread_pool_;
     };
 }
