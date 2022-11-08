@@ -108,9 +108,14 @@ namespace SoftRenderer
         }
     }
 
-    void Graphics::clearBuffer(const glm::vec4& color)
+    void Graphics::clearColor(const glm::vec4& color)
     {
         mBackBuffer->clearColor(color);
+    }
+
+    void Graphics::clearDepth(float depth)
+    {
+        mBackBuffer->clearDepth(depth);
     }
 
     void Graphics::swapBuffer()
@@ -205,11 +210,8 @@ namespace SoftRenderer
         }
     }
 
-    void Graphics::VaryingInterpolate(float* out_vary,
-        const float* in_varyings[],
-        size_t elem_cnt,
-        glm::aligned_vec4& bc) 
-        {
+    void Graphics::VaryingInterpolate(float* out_vary, const float* in_varyings[], size_t elem_cnt, glm::aligned_vec4& bc) 
+    {
         const float* in_vary0 = in_varyings[0];
         const float* in_vary1 = in_varyings[1];
         const float* in_vary2 = in_varyings[2];
@@ -219,7 +221,41 @@ namespace SoftRenderer
             auto a = glm::vec4(*(in_vary0 + i), *(in_vary1 + i), *(in_vary2 + i), 1.0f);
             out_vary[i] = glm::dot(glm::vec4(bc.x, bc.y, bc.z, bc.w), a);
         }
+    }
+
+    bool Graphics::DepthTest(uint32_t x, uint32_t y, float depth)
+    {
+        if(!mEnableDepthTest)
+            return true;
+
+        float z = mBackBuffer->getDepth(x, y);
+        if (DepthFuncTest(depth, z, mDepthFunc))
+        {
+            if (mEnableDepthMask)
+            {
+                mBackBuffer->writeDepth(x, y, depth);
+            }
+            return true;
         }
+
+        return false;
+    }
+
+    bool Graphics::DepthFuncTest(float depth, float z, DepthFunc func)
+    {
+        switch (func)
+        {
+        case DepthFunc::DEPTH_NEVER:return false;
+        case DepthFunc::DEPTH_LESS:return depth < z;
+        case DepthFunc::DEPTH_EQUAL:return std::fabs(depth - z) <= std::numeric_limits<float>::epsilon();
+        case DepthFunc::DEPTH_LEQUAL:return depth <= z;
+        case DepthFunc::DEPTH_GREATER:return depth > z;
+        case DepthFunc::DEPTH_NOTEQUAL:return std::fabs(depth - z) > std::numeric_limits<float>::epsilon();
+        case DepthFunc::DEPTH_GEQUAL:return depth >= z;
+        case DepthFunc::DEPTH_ALWAYS:return true;
+        }
+        return depth < z;
+    }
 
     float Graphics::interpolateDepth(const std::array<float, 3>& screenDepth, const glm::vec3& weight)
     {
@@ -663,8 +699,6 @@ namespace SoftRenderer
         const glm::ivec2& B = glm::ivec2((int32_t)(screenPosition[1].x), (int32_t)(screenPosition[1].y));
         const glm::ivec2& C = glm::ivec2((int32_t)(screenPosition[2].x), (int32_t)(screenPosition[2].y));
 
-        //float Z[3] = { v0.screenPosition.z, v1.screenPosition.z, v2.screenPosition.z };
-
         int32_t minX = std::max(std::min(A.x, std::min(B.x, C.x)), 0);
         int32_t minY = std::max(std::min(A.y, std::min(B.y, C.y)), 0);
         int32_t maxX = std::min(std::max(A.x, std::max(B.x, C.x)), mWidth - 1);
@@ -699,45 +733,37 @@ namespace SoftRenderer
         if (delta == 0)
             return;
 
-        float oneDivideDelta = 1 / (float)delta;
-
-        //Z[1] = (Z[1] - Z[0]) * OneDivideDelta;
-        //Z[2] = (Z[2] - Z[0]) * OneDivideDelta;
-
+        const float oneDivideDelta = 1 / (float)delta;
 
         int32_t Cy1 = F01, Cy2 = F02, Cy3 = F03;
-
 
         auto block_size = (float)32;
         int32_t blockCountX = (int32_t)((maxX - minX + block_size - 1.0f) / block_size);
         int32_t blockCountY = (int32_t)((maxY - minY + block_size - 1.0f) / block_size);    
 
-        bool hascout = false;    
-
         for (int32_t blockY = 0; blockY < blockCountY; blockY++)
         {
             for (int32_t blockX = 0; blockX < blockCountX; blockX++)
             {
-
-                thread_pool_.push_task([&, block_size, blockX, blockY]
+                mThreadPool.push_task([&, block_size, blockX, blockY]
                 {
-                    FragmentQuad pixel_quad(mRenderContex.varyingsAlignedSize);
+                    FragmentQuad fragementQuad(mRenderContex.varyingsAlignedSize);
 
-                    pixel_quad.front_facing = face.frontFacing;
+                    fragementQuad.front_facing = face.frontFacing;
 
                     for (int32_t i = 0; i < 3; i++)
                     {
                         auto& vertex = mRenderContex.vertexBuffer[face.indices[i]];
-                        pixel_quad.triangularVertexScreenPosition[i] = vertex.position;
-                        pixel_quad.triangularVertexVarings[i] = vertex.varyings;
-                        pixel_quad.triangularVertexClipZ[i] = (mDepthRange.f + mDepthRange.n - vertex.position.z) * vertex.position.w;  // [far, near] -> [near, far]
+                        fragementQuad.triangularVertexScreenPosition[i] = vertex.position;
+                        fragementQuad.triangularVertexVarings[i] = vertex.varyings;
+                        fragementQuad.triangularVertexClipZ[i] = (mDepthRange.f + mDepthRange.n - vertex.position.z) * vertex.position.w;  // [far, near] -> [near, far]
                     }
 
-                    const glm::aligned_vec4* triangularVertexScreenPosition = pixel_quad.triangularVertexScreenPosition;
-                    pixel_quad.triangularVertexScreenPositionFlat[0] = { triangularVertexScreenPosition[2].x, triangularVertexScreenPosition[1].x, triangularVertexScreenPosition[0].x, 0.f };
-                    pixel_quad.triangularVertexScreenPositionFlat[1] = { triangularVertexScreenPosition[2].y, triangularVertexScreenPosition[1].y, triangularVertexScreenPosition[0].y, 0.f };
-                    pixel_quad.triangularVertexScreenPositionFlat[2] = { triangularVertexScreenPosition[0].z, triangularVertexScreenPosition[1].z, triangularVertexScreenPosition[2].z, 0.f };
-                    pixel_quad.triangularVertexScreenPositionFlat[3] = { triangularVertexScreenPosition[0].w, triangularVertexScreenPosition[1].w, triangularVertexScreenPosition[2].w, 0.f };
+                    const glm::aligned_vec4* triangularVertexScreenPosition = fragementQuad.triangularVertexScreenPosition;
+                    fragementQuad.triangularVertexScreenPositionFlat[0] = { triangularVertexScreenPosition[2].x, triangularVertexScreenPosition[1].x, triangularVertexScreenPosition[0].x, 0.f };
+                    fragementQuad.triangularVertexScreenPositionFlat[1] = { triangularVertexScreenPosition[2].y, triangularVertexScreenPosition[1].y, triangularVertexScreenPosition[0].y, 0.f };
+                    fragementQuad.triangularVertexScreenPositionFlat[2] = { triangularVertexScreenPosition[0].z, triangularVertexScreenPosition[1].z, triangularVertexScreenPosition[2].z, 0.f };
+                    fragementQuad.triangularVertexScreenPositionFlat[3] = { triangularVertexScreenPosition[0].w, triangularVertexScreenPosition[1].w, triangularVertexScreenPosition[2].w, 0.f };
 
                     int32_t Dy1 = Cy1 + block_size * blockY * J01;
                     int32_t Dy2 = Cy2 + block_size * blockY * J02;
@@ -756,9 +782,9 @@ namespace SoftRenderer
 
                         for (int32_t x = blockStartX; x < blockStartX + block_size && x <= maxX; x += 2)
                         {
-                            pixel_quad.init(x, y);
+                            fragementQuad.init(x, y);
 
-                            pixel_quad.frag_shader.uniforms = mProgram->fragmentShader->uniforms;
+                            fragementQuad.frag_shader.uniforms = mProgram->fragmentShader->uniforms;
 
                             bool inside0 = isSamplingInside(x, y, Dx1, Dx2, Dx3, maxX, maxY);
                             bool inside1 = isSamplingInside(x + 1, y, Dx1 + I01, Dx2 + I02, Dx3 + I03, maxX, maxY);
@@ -772,86 +798,86 @@ namespace SoftRenderer
                                 {
                                     glm::vec3 uvw(Dx2, Dx3, Dx1);
                                     glm::vec3 weights = uvw * oneDivideDelta;
-                                    pixel_quad.pixels[0].barycentric = glm::aligned_vec4(weights, 0.0f);
-                                    //glm::aligned_vec4* vert = pixel_quad.vert_flat;
-                                    //glm::aligned_vec4& v0 = pixel_quad.screen_pos[0];
-                                    //Barycentric(vert, v0, pixel_quad.pixels[0].position, pixel_quad.pixels[0].barycentric);
-                                    pixel_quad.pixels[0].inside = true;
+                                    fragementQuad.pixels[0].barycentric = glm::aligned_vec4(weights, 0.0f);
+                                    //glm::aligned_vec4* vert = fragementQuad.vert_flat;
+                                    //glm::aligned_vec4& v0 = fragementQuad.screen_pos[0];
+                                    //Barycentric(vert, v0, fragementQuad.pixels[0].position, fragementQuad.pixels[0].barycentric);
+                                    fragementQuad.pixels[0].inside = true;
                                 }
                                 else
                                 {
-                                    glm::aligned_vec4* vert = pixel_quad.triangularVertexScreenPositionFlat;
-                                    glm::aligned_vec4& v0 = pixel_quad.triangularVertexScreenPosition[0];
-                                    Barycentric(vert, v0, pixel_quad.pixels[0].position, pixel_quad.pixels[0].barycentric);
-                                    pixel_quad.pixels[0].inside = false;
+                                    glm::aligned_vec4* vert = fragementQuad.triangularVertexScreenPositionFlat;
+                                    glm::aligned_vec4& v0 = fragementQuad.triangularVertexScreenPosition[0];
+                                    Barycentric(vert, v0, fragementQuad.pixels[0].position, fragementQuad.pixels[0].barycentric);
+                                    fragementQuad.pixels[0].inside = false;
                                 }
 
                                 if (inside1)
                                 {
                                     glm::vec3 uvw(Dx2 + I02, Dx3 + I03, Dx1 + I01);
                                     glm::vec3 weights = uvw * oneDivideDelta;
-                                    pixel_quad.pixels[1].barycentric = glm::aligned_vec4(weights, 0.0f);
-                                    //glm::aligned_vec4* vert = pixel_quad.vert_flat;
-                                    //glm::aligned_vec4& v0 = pixel_quad.screen_pos[0];
-                                    //Barycentric(vert, v0, pixel_quad.pixels[1].position, pixel_quad.pixels[1].barycentric);
-                                    pixel_quad.pixels[1].inside = true;
+                                    fragementQuad.pixels[1].barycentric = glm::aligned_vec4(weights, 0.0f);
+                                    //glm::aligned_vec4* vert = fragementQuad.vert_flat;
+                                    //glm::aligned_vec4& v0 = fragementQuad.screen_pos[0];
+                                    //Barycentric(vert, v0, fragementQuad.pixels[1].position, fragementQuad.pixels[1].barycentric);
+                                    fragementQuad.pixels[1].inside = true;
                                 }
                                 else
                                 {
-                                    glm::aligned_vec4* vert = pixel_quad.triangularVertexScreenPositionFlat;
-                                    glm::aligned_vec4& v0 = pixel_quad.triangularVertexScreenPosition[0];
-                                    Barycentric(vert, v0, pixel_quad.pixels[1].position, pixel_quad.pixels[1].barycentric);
-                                    pixel_quad.pixels[1].inside = false;
+                                    glm::aligned_vec4* vert = fragementQuad.triangularVertexScreenPositionFlat;
+                                    glm::aligned_vec4& v0 = fragementQuad.triangularVertexScreenPosition[0];
+                                    Barycentric(vert, v0, fragementQuad.pixels[1].position, fragementQuad.pixels[1].barycentric);
+                                    fragementQuad.pixels[1].inside = false;
                                 }
 
                                 if (inside2)
                                 {
                                     glm::vec3 uvw(Dx2 + J02, Dx3 + J03, Dx1 + J01);
                                     glm::vec3 weights = uvw * oneDivideDelta;
-                                    pixel_quad.pixels[2].barycentric = glm::aligned_vec4(weights, 0.0f);
-                                    //glm::aligned_vec4* vert = pixel_quad.vert_flat;
-                                    //glm::aligned_vec4& v0 = pixel_quad.screen_pos[0];
-                                    //Barycentric(vert, v0, pixel_quad.pixels[2].position, pixel_quad.pixels[2].barycentric);
-                                    pixel_quad.pixels[2].inside = true;
+                                    fragementQuad.pixels[2].barycentric = glm::aligned_vec4(weights, 0.0f);
+                                    //glm::aligned_vec4* vert = fragementQuad.vert_flat;
+                                    //glm::aligned_vec4& v0 = fragementQuad.screen_pos[0];
+                                    //Barycentric(vert, v0, fragementQuad.pixels[2].position, fragementQuad.pixels[2].barycentric);
+                                    fragementQuad.pixels[2].inside = true;
                                 }
                                 else
                                 {
-                                    glm::aligned_vec4* vert = pixel_quad.triangularVertexScreenPositionFlat;
-                                    glm::aligned_vec4& v0 = pixel_quad.triangularVertexScreenPosition[0];
-                                    Barycentric(vert, v0, pixel_quad.pixels[2].position, pixel_quad.pixels[2].barycentric);
-                                    pixel_quad.pixels[2].inside = false;
+                                    glm::aligned_vec4* vert = fragementQuad.triangularVertexScreenPositionFlat;
+                                    glm::aligned_vec4& v0 = fragementQuad.triangularVertexScreenPosition[0];
+                                    Barycentric(vert, v0, fragementQuad.pixels[2].position, fragementQuad.pixels[2].barycentric);
+                                    fragementQuad.pixels[2].inside = false;
                                 }
 
                                 if (inside3)
                                 {
                                     glm::vec3 uvw(Dx2 + J02 + I02, Dx3 + J03 + I03, Dx1 + J01 + I01);
                                     glm::vec3 weights = uvw * oneDivideDelta;
-                                    pixel_quad.pixels[3].barycentric = glm::aligned_vec4(weights, 0.0f);
-                                    //glm::aligned_vec4* vert = pixel_quad.vert_flat;
-                                    //glm::aligned_vec4& v0 = pixel_quad.screen_pos[0];
-                                    //Barycentric(vert, v0, pixel_quad.pixels[3].position, pixel_quad.pixels[3].barycentric);
-                                    pixel_quad.pixels[3].inside = true;
+                                    fragementQuad.pixels[3].barycentric = glm::aligned_vec4(weights, 0.0f);
+                                    //glm::aligned_vec4* vert = fragementQuad.vert_flat;
+                                    //glm::aligned_vec4& v0 = fragementQuad.screen_pos[0];
+                                    //Barycentric(vert, v0, fragementQuad.pixels[3].position, fragementQuad.pixels[3].barycentric);
+                                    fragementQuad.pixels[3].inside = true;
                                 }
                                 else
                                 {
-                                    glm::aligned_vec4* vert = pixel_quad.triangularVertexScreenPositionFlat;
-                                    glm::aligned_vec4& v0 = pixel_quad.triangularVertexScreenPosition[0];
-                                    Barycentric(vert, v0, pixel_quad.pixels[3].position, pixel_quad.pixels[3].barycentric);
-                                    pixel_quad.pixels[3].inside = false;
+                                    glm::aligned_vec4* vert = fragementQuad.triangularVertexScreenPositionFlat;
+                                    glm::aligned_vec4& v0 = fragementQuad.triangularVertexScreenPosition[0];
+                                    Barycentric(vert, v0, fragementQuad.pixels[3].position, fragementQuad.pixels[3].barycentric);
+                                    fragementQuad.pixels[3].inside = false;
                                 }
 
                                 // barycentric correction
-                                PerspectiveCorrectInterpolation(pixel_quad);
+                                PerspectiveCorrectInterpolation(fragementQuad);
 
                                 // varying interpolate
                                 // note: all quad pixels should perform varying interpolate to enable varying partial derivative
-                                for (auto& pixel : pixel_quad.pixels) 
+                                for (auto& pixel : fragementQuad.pixels)
                                 {
-                                    VaryingInterpolate((float*)pixel.interpolatedVaryings, pixel_quad.triangularVertexVarings, mRenderContex.varyingsCount, pixel.barycentric);
+                                    VaryingInterpolate((float*)pixel.interpolatedVaryings, fragementQuad.triangularVertexVarings, mRenderContex.varyingsCount, pixel.barycentric);
                                 }
 
                                 // pixel shading
-                                for (auto& pixel : pixel_quad.pixels) 
+                                for (auto& pixel : fragementQuad.pixels)
                                 {
                                     glm::aligned_vec4& pos = pixel.position;
                                     if (!pixel.inside) 
@@ -863,27 +889,24 @@ namespace SoftRenderer
 
                                     // fragment shader
                                      auto varings =  (BaseShaderVaryings*)pixel.interpolatedVaryings;
-                                     pixel_quad.frag_shader.varyings = varings;
+                                     fragementQuad.frag_shader.varyings = varings;
 
                                     auto pos_x = (int) pos.x;
                                     auto pos_y = (int) pos.y;
 
                                     // fragment shader
-                                    //BaseFragmentShader *frag_shader = pixel_quad.frag_shader.get();
-                                    pixel_quad.frag_shader.gl_FragCoord = glm::vec4(pos.x, pos.y, pos.z, 1.0f / pos.w);
-                                    pixel_quad.frag_shader.shaderMain();
+                                    //BaseFragmentShader *frag_shader = fragementQuad.frag_shader.get();
+                                    fragementQuad.frag_shader.gl_FragCoord = glm::vec4(pos.x, pos.y, pos.z, 1.0f / pos.w);
+                                    fragementQuad.frag_shader.shaderMain();
 
-                                    // frag color
-                                    glm::vec4 color = glm::clamp(pixel_quad.frag_shader.gl_FragColor, 0.f, 1.f);
+                                    // fragment color
+                                    glm::vec4 color = glm::clamp(fragementQuad.frag_shader.gl_FragColor, 0.f, 1.f);
                                     
-                                    mBackBuffer->writeColor(pos.x, pos.y, color);
-
-                                    if(!hascout)
-                                    {   
-                                        hascout = true;
-                                        //std::cout << pixel_quad.frag_shader.gl_FragDepth << "===" << std::endl; 
+                                    if (DepthTest(pos_x, pos_y, fragementQuad.frag_shader.gl_FragDepth))
+                                    {
+                                        mBackBuffer->writeColor(pos_x, pos_y, color);
                                     }
-                                    
+
                                 }
                             }
 
@@ -895,46 +918,39 @@ namespace SoftRenderer
             }
         }
 
-        thread_pool_.wait_for_tasks();
+        mThreadPool.wait_for_tasks();
+    }
 
-        //for (int y = minY; y < maxY; ++y)
-        //{
-        //    int Cx1 = Cy1;
-        //    int Cx2 = Cy2;
-        //    int Cx3 = Cy3;
+    void Graphics::pixelShading(FragmentQuad& fragementQuad)
+    {
+        for (auto& pixel : fragementQuad.pixels)
+        {
+            glm::aligned_vec4& pos = pixel.position;
+            if (!pixel.inside)
+            {
+                continue;
+            }
 
-        //    //float depth = Z[0] + Cx3 * Z[1] + Cx1 * Z[2];
+            // fragment shader
+            uint32_t x = (uint32_t)pos.x;
+            uint32_t y = (uint32_t)pos.y;
+            BaseFragmentShader& fragmentShader = fragementQuad.frag_shader;
 
-        //    for (int x = minX; x < maxX; ++x)
-        //    {
-        //        const int mask = Cx1 | Cx2 | Cx3;
-        //        if (mask >= 0)
-        //        {
-        //            glm::vec3 weights = glm::vec3(Cx2 * oneDivideDelta, Cx3 * oneDivideDelta, Cx1 * oneDivideDelta);
+            fragmentShader.varyings = (BaseShaderVaryings*)pixel.interpolatedVaryings;
 
-        //            //auto v = Shader::VertexData::barycentricLerp(v0, v1, v2, weights);
+            // fragment shader
+            fragmentShader.gl_FragCoord = glm::vec4(pos.x, pos.y, pos.z, 1.0f / pos.w);
+            fragmentShader.shaderMain();
 
-        //            //std::array<glm::vec2, 3> texcoords = { v0.texcoord, v1.texcoord, v2.texcoord };
-        //            //std::array<float, 3> reclipW = { v0.clipW, v1.clipW, v2.clipW };
+            // fragment color
+            glm::vec4 color = glm::clamp(fragmentShader.gl_FragColor, 0.0f, 1.0f);
 
-        //            //v.texcoord = interpolateTexcoord(texcoords, weights, reclipW);
-        //            //v.texcoord /= v.clipW;
+            if (DepthTest(x, y, fragmentShader.gl_FragDepth))
+            {
+                mBackBuffer->writeColor(pos.x, pos.y, color);
+            }
 
-        //            mBackBuffer->writeColor(x, y, glm::vec4(0.0f, 1.0f, 0.0f, 1.0f));
-        //            //mBackBuffer->writeColor(x, y, mShader->fragmentShader(v));
-
-        //            //mBackBuffer->WriteDepth(x, y, depth);
-        //        }
-
-        //        Cx1 += I01;
-        //        Cx2 += I02;
-        //        Cx3 += I03;
-        //    }
-
-        //    Cy1 += J01;
-        //    Cy2 += J02;
-        //    Cy3 += J03;
-        //}
+        }
     }
 
     void Graphics::drawLine(const glm::vec2& v0, const glm::vec2& v1)
@@ -997,6 +1013,21 @@ namespace SoftRenderer
     void Graphics::useProgram(std::shared_ptr<Program> program)
     {
         mProgram = program;
+    }
+
+    void Graphics::setDepthTestEnable(bool enable)
+    {
+        mEnableDepthTest = enable;
+    }
+
+    void Graphics::setDepthWriteMask(bool enable)
+    {
+        mEnableDepthMask = enable;
+    }
+
+    void Graphics::setDepthFunc(DepthFunc func)
+    {
+        mDepthFunc = func;
     }
 }
 

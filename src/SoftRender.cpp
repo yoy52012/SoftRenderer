@@ -654,7 +654,8 @@ void main()
 
     while (!window->should_close())
     {
-        render.clearBuffer(glm::vec4(0.1, 0.1, 0.1, 1.0));
+        render.clearColor(glm::vec4(0.1, 0.1, 0.1, 1.0));
+        render.clearDepth(0.0f);
 
         //render.setModelMatrix(modelMat);
         //render.setViewMatrix(camera.getViewMatrix());

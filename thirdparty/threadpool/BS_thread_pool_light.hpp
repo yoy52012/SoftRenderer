@@ -29,7 +29,7 @@ namespace BS
     /**
      * @brief A convenient shorthand for the type of std::thread::hardware_concurrency(). Should evaluate to unsigned int.
      */
-    using concurrency_t = unsigned int;//std::invoke_result_t<decltype(std::thread::hardware_concurrency)>;
+    using concurrency_t = std::invoke_result_t<decltype(std::thread::hardware_concurrency)>;
 
     /**
      * @brief A fast, lightweight, and easy-to-use C++17 thread pool class. This is a lighter version of the main thread pool class.
@@ -137,8 +137,7 @@ namespace BS
         {
             std::function<void()> task_function = std::bind(std::forward<F>(task), std::forward<A>(args)...);
             {
-                //const std::scoped_lock tasks_lock(tasks_mutex);
-                const std::lock_guard<std::mutex>tasks_lock(tasks_mutex);
+                const std::scoped_lock tasks_lock(tasks_mutex);
                 tasks.push(task_function);
             }
             ++tasks_total;

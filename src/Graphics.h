@@ -68,6 +68,18 @@ namespace SoftRenderer
             float height;
         };
 
+        enum class DepthFunc 
+        {
+            DEPTH_NEVER,
+            DEPTH_LESS,
+            DEPTH_EQUAL,
+            DEPTH_LEQUAL,
+            DEPTH_GREATER,
+            DEPTH_NOTEQUAL,
+            DEPTH_GEQUAL,
+            DEPTH_ALWAYS,
+        };
+
         struct FaceResource
         {
             int32_t indices[3]{ -1, -1, -1 };
@@ -225,7 +237,9 @@ namespace SoftRenderer
 
         void drawMesh1(const Mesh* mesh);
 
-        void clearBuffer(const glm::vec4& color);
+        void clearColor(const glm::vec4& color);
+
+        void clearDepth(float depth);
 
         void swapBuffer();
 
@@ -240,6 +254,12 @@ namespace SoftRenderer
         void drawLine(const glm::vec2& v0, const glm::vec2& v1);
 
         void useProgram(std::shared_ptr<Program> program);
+
+        void setDepthTestEnable(bool enable);
+
+        void setDepthWriteMask(bool enable);
+
+        void setDepthFunc(DepthFunc func);
 
     private:
         void uploadVertexData(const std::vector<Vertex>& vertices, const std::vector<int>& indices);
@@ -267,10 +287,11 @@ namespace SoftRenderer
 
         void PerspectiveCorrectInterpolation(FragmentQuad& quad);
 
-        void VaryingInterpolate(float* out_vary,
-            const float* in_varyings[],
-            size_t elem_cnt,
-            glm::aligned_vec4& bc);
+        void VaryingInterpolate(float* out_vary, const float* in_varyings[], size_t elem_cnt, glm::aligned_vec4& bc);
+
+        bool DepthTest(uint32_t x, uint32_t y, float depth);
+
+        bool DepthFuncTest(float z, float depth, DepthFunc func);
 
         float interpolateDepth(const std::array<float, 3>& screenDepth, const glm::vec3& weight);
 
@@ -290,6 +311,8 @@ namespace SoftRenderer
 
         void scanLine(const Shader::VertexData& left, const Shader::VertexData& right);
 
+        void pixelShading(FragmentQuad& fragementQuad);
+
 
     private:
         Shader::Ptr mShader;
@@ -302,6 +325,10 @@ namespace SoftRenderer
 
         Viewport mViewport;
         DepthRange mDepthRange;
+        
+        DepthFunc mDepthFunc = DepthFunc::DEPTH_GREATER; // Reversed-Z
+        bool mEnableDepthTest = true;
+        bool mEnableDepthMask = true;
 
         bool mEnableBackfaceCull = true;
 
@@ -309,6 +336,6 @@ namespace SoftRenderer
 
         std::shared_ptr<Program> mProgram = nullptr;
 
-        BS::thread_pool_light thread_pool_;
+        BS::thread_pool_light mThreadPool;
     };
 }
