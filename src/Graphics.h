@@ -285,13 +285,13 @@ namespace SoftRenderer
 
         void viewportTransform1(glm::vec4& pos);
 
-        void PerspectiveCorrectInterpolation(FragmentQuad& quad);
+        void perspectiveCorrectInterpolation(FragmentQuad& quad);
 
-        void VaryingInterpolate(float* out_vary, const float* in_varyings[], size_t elem_cnt, glm::aligned_vec4& bc);
+        void varyingInterpolate(float* out_vary, const float* in_varyings[], size_t elem_cnt, glm::aligned_vec4& bc);
 
-        bool DepthTest(uint32_t x, uint32_t y, float depth);
+        bool depthTest(uint32_t x, uint32_t y, float depth);
 
-        bool DepthFuncTest(float z, float depth, DepthFunc func);
+        bool depthFuncTest(float z, float depth, DepthFunc func);
 
         float interpolateDepth(const std::array<float, 3>& screenDepth, const glm::vec3& weight);
 

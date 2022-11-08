@@ -192,7 +192,7 @@ namespace SoftRenderer
         pos.z = 0.5f * (sum - diff * pos.z);
     }
 
-    void Graphics::PerspectiveCorrectInterpolation(FragmentQuad& quad)
+    void Graphics::perspectiveCorrectInterpolation(FragmentQuad& quad)
     {
         glm::aligned_vec4* vert = quad.triangularVertexScreenPositionFlat;
 
@@ -210,7 +210,7 @@ namespace SoftRenderer
         }
     }
 
-    void Graphics::VaryingInterpolate(float* out_vary, const float* in_varyings[], size_t elem_cnt, glm::aligned_vec4& bc) 
+    void Graphics::varyingInterpolate(float* out_vary, const float* in_varyings[], size_t elem_cnt, glm::aligned_vec4& bc) 
     {
         const float* in_vary0 = in_varyings[0];
         const float* in_vary1 = in_varyings[1];
@@ -223,13 +223,16 @@ namespace SoftRenderer
         }
     }
 
-    bool Graphics::DepthTest(uint32_t x, uint32_t y, float depth)
+    bool Graphics::depthTest(uint32_t x, uint32_t y, float depth)
     {
+        // https://registry.khronos.org/OpenGL-Refpages/gl4/html/glDepthFunc.xhtml
+        // Even if the depth buffer exists and the depth mask is non-zero, the depth buffer is not updated if the depth test is disabled. 
+        // In order to unconditionally write to the depth buffer, the depth test should be enabled and set to GL_ALWAYS.
         if(!mEnableDepthTest)
             return true;
 
         float z = mBackBuffer->getDepth(x, y);
-        if (DepthFuncTest(depth, z, mDepthFunc))
+        if (depthFuncTest(depth, z, mDepthFunc))
         {
             if (mEnableDepthMask)
             {
@@ -241,7 +244,7 @@ namespace SoftRenderer
         return false;
     }
 
-    bool Graphics::DepthFuncTest(float depth, float z, DepthFunc func)
+    bool Graphics::depthFuncTest(float depth, float z, DepthFunc func)
     {
         switch (func)
         {
@@ -867,47 +870,17 @@ namespace SoftRenderer
                                 }
 
                                 // barycentric correction
-                                PerspectiveCorrectInterpolation(fragementQuad);
+                                perspectiveCorrectInterpolation(fragementQuad);
 
                                 // varying interpolate
                                 // note: all quad pixels should perform varying interpolate to enable varying partial derivative
                                 for (auto& pixel : fragementQuad.pixels)
                                 {
-                                    VaryingInterpolate((float*)pixel.interpolatedVaryings, fragementQuad.triangularVertexVarings, mRenderContex.varyingsCount, pixel.barycentric);
+                                    varyingInterpolate((float*)pixel.interpolatedVaryings, fragementQuad.triangularVertexVarings, mRenderContex.varyingsCount, pixel.barycentric);
                                 }
 
-                                // pixel shading
-                                for (auto& pixel : fragementQuad.pixels)
-                                {
-                                    glm::aligned_vec4& pos = pixel.position;
-                                    if (!pixel.inside) 
-                                    {
-                                        continue;
-                                    }
-
-                                    glm::vec2 a = pixel.barycentric.x * glm::vec2(1.0, 1.0) + pixel.barycentric.y * glm::vec2(0.0, 0.0) + pixel.barycentric.z * glm::vec2(0.0, 1.0);
-
-                                    // fragment shader
-                                     auto varings =  (BaseShaderVaryings*)pixel.interpolatedVaryings;
-                                     fragementQuad.frag_shader.varyings = varings;
-
-                                    auto pos_x = (int) pos.x;
-                                    auto pos_y = (int) pos.y;
-
-                                    // fragment shader
-                                    //BaseFragmentShader *frag_shader = fragementQuad.frag_shader.get();
-                                    fragementQuad.frag_shader.gl_FragCoord = glm::vec4(pos.x, pos.y, pos.z, 1.0f / pos.w);
-                                    fragementQuad.frag_shader.shaderMain();
-
-                                    // fragment color
-                                    glm::vec4 color = glm::clamp(fragementQuad.frag_shader.gl_FragColor, 0.f, 1.f);
-                                    
-                                    if (DepthTest(pos_x, pos_y, fragementQuad.frag_shader.gl_FragDepth))
-                                    {
-                                        mBackBuffer->writeColor(pos_x, pos_y, color);
-                                    }
-
-                                }
+                                // fragment quad shading
+                                pixelShading(fragementQuad);
                             }
 
                             Dx1 += 2 * I01; Dx2 += 2 * I02; Dx3 += 2 * I03;
@@ -931,23 +904,25 @@ namespace SoftRenderer
                 continue;
             }
 
-            // fragment shader
             uint32_t x = (uint32_t)pos.x;
             uint32_t y = (uint32_t)pos.y;
+
             BaseFragmentShader& fragmentShader = fragementQuad.frag_shader;
-
             fragmentShader.varyings = (BaseShaderVaryings*)pixel.interpolatedVaryings;
-
-            // fragment shader
             fragmentShader.gl_FragCoord = glm::vec4(pos.x, pos.y, pos.z, 1.0f / pos.w);
+
+            // pixel shading
             fragmentShader.shaderMain();
 
-            // fragment color
+            // pixel color
             glm::vec4 color = glm::clamp(fragmentShader.gl_FragColor, 0.0f, 1.0f);
 
-            if (DepthTest(x, y, fragmentShader.gl_FragDepth))
+            // pixel depth
+            float depth = fragmentShader.gl_FragDepth;
+
+            if (depthTest(x, y, depth))
             {
-                mBackBuffer->writeColor(pos.x, pos.y, color);
+                mBackBuffer->writeColor(x, y, color);
             }
 
         }
