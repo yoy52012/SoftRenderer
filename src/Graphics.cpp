@@ -489,7 +489,7 @@ namespace SoftRenderer
             }
     }
 
-    void Graphics::uploadVertexData(const std::vector<Vertex>& vertices, const std::vector<int>& indices)
+    void Graphics::uploadVertexData(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices)
     {
         mRenderContex.createVertexBuffer(vertices);
         mRenderContex.createIndexBuffer(indices);

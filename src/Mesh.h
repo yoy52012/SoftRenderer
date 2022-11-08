@@ -2,7 +2,8 @@
 
 #include <vector>
 #include <memory>
-#include <glm/glm.hpp>
+
+#include "MathUtils.h"
 
 namespace SoftRenderer
 {
@@ -39,7 +40,7 @@ namespace SoftRenderer
 	class SubMesh
 	{
 	public:
-		enum  MeshFlags : uint32_t
+		enum MeshFlags
 		{
 			HasPosition = 1,
 			HasNormal = 1 << 1,
@@ -47,11 +48,12 @@ namespace SoftRenderer
 			HasTexcoord = 1 << 3,
 			HasColor = 1 << 4,
 		};
+
 	public:
 		SubMesh() = default;
 		~SubMesh() = default;
 
-		SubMesh(const std::vector<glm::vec3>& positions, const std::vector<glm::vec3>& normals, const std::vector<glm::vec2>& uvs, const std::vector<int>& indices);
+		SubMesh(const std::vector<glm::vec3>& positions, const std::vector<glm::vec3>& normals, const std::vector<glm::vec2>& uvs, const std::vector<uint32_t>& indices);
 
 		SubMesh(const SubMesh& mesh)
 		{
@@ -75,12 +77,12 @@ namespace SoftRenderer
 		SubMesh& setNormals(const std::vector<glm::vec3>& normals);
 		SubMesh& setTangents(const std::vector<glm::vec4>& tangents);
 		SubMesh& setColors(const std::vector <glm::vec4>& colors);
-		SubMesh& setUvs(const std::vector<glm::vec2>& uvs);
-		SubMesh& setIndices(const std::vector<int>& indices);
+		SubMesh& setUVs(const std::vector<glm::vec2>& uvs);
+		SubMesh& setIndices(const std::vector<uint32_t>& indices);
 		SubMesh& build();
 	
 		std::vector<Vertex> vertices;
-		std::vector<int> indices;
+		std::vector<uint32_t> indices;
 
 		std::vector<glm::vec3> positions;
 		std::vector<glm::vec3> normals;
@@ -96,14 +98,13 @@ namespace SoftRenderer
 	public:
 		void addSubMesh(std::shared_ptr<SubMesh> subMesh);
 
-        static std::shared_ptr<Mesh> createPlaneMesh();
-        static std::shared_ptr<Mesh> createPlaneMesh2();
+        static std::shared_ptr<Mesh> createPlane(uint32_t width, uint32_t height, uint32_t widthSegments, uint32_t heightSegments);
 
-        static std::shared_ptr<Mesh> createBoxMesh();
-        static std::shared_ptr<Mesh> createBoxMesh2();
+        static std::shared_ptr<Mesh> createBox(uint32_t width, uint32_t height, uint32_t depth, uint32_t widthSegments, uint32_t heightSegments, uint32_t depthSegments);
+
+		static std::shared_ptr<Mesh> createSphere(float radius, float phiStart, float phiLength, float thetaStart, float thetaLength);
 
 	public:
-
 		std::vector<std::shared_ptr<SubMesh>> subMeshs;
 	};
 }

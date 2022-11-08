@@ -186,7 +186,7 @@ namespace SoftRenderer
                 }
             }
 
-            void createIndexBuffer(const std::vector<int>& indices)
+            void createIndexBuffer(const std::vector<uint32_t>& indices)
             {
                 const size_t faceCount = indices.size() / 3;
                 faceBuffer.resize(faceCount);
@@ -262,7 +262,7 @@ namespace SoftRenderer
         void setDepthFunc(DepthFunc func);
 
     private:
-        void uploadVertexData(const std::vector<Vertex>& vertices, const std::vector<int>& indices);
+        void uploadVertexData(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices);
 
         void processVertexShader();
 

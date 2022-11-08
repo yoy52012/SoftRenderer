@@ -584,7 +584,7 @@ void main()
     //rasterizeTriangle(v0, v1, v2, frameBuffer, glm::vec4(1.0, 1.0, 0.0, 1.0));
     //rasterizeTriangle(v3, v4, v5, frameBuffer, glm::vec4(1.0, 1.0, 0.0, 1.0));
 
-    glm::vec3 position(0.0f, 0.0f, 3.0f);
+    glm::vec3 position(0.0f, 0.0f, 5.0f);
     glm::vec3 target(0.0f, 0.0f, 0.0f);
     Camera camera(position, target, 1.0);
 
@@ -606,12 +606,9 @@ void main()
     v5.color = glm::vec4(0.0f, 1.0f, 0.0f, 1.0f);
     v6.color = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
 
-    std::shared_ptr<Mesh> mesh1 = Mesh::createPlaneMesh();
-
-    std::shared_ptr<Mesh> mesh2 = Mesh::createPlaneMesh2();
-
-    std::shared_ptr<Mesh> mesh3 = Mesh::createBoxMesh2();
-
+    std::shared_ptr<Mesh> plane = Mesh::createPlane(2, 2, 1, 1);
+    std::shared_ptr<Mesh> box = Mesh::createBox(2, 2, 2, 1, 1, 1);
+    std::shared_ptr<Mesh> sphere = Mesh::createSphere(1.0f, 0.0f, 2.0f * MathUtils::PI, 0.0f, MathUtils::PI);
 
     //Mesh mesh;
     //mesh.addTriangle(v1, v2, v3);
@@ -673,7 +670,7 @@ void main()
             
         //render.drawTriangle(v1, v2, v3);
         //render.drawTriangle(v4, v5, v6);
-        render.drawMesh1(mesh3.get());
+        render.drawMesh1(plane.get());
 
         //render.drawLine(glm::vec2(100, 10), glm::vec2(400, 40));
 

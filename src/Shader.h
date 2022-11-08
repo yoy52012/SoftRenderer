@@ -157,6 +157,7 @@ namespace SoftRenderer
 
             gl_Position = u->uModelViewProjectMatrix * position;
 
+            varyings->vNormal = u->uModelMatrix * glm::vec4(a->aNormal, 1.0f);
             varyings->vTexCoord = a->aTextureCoord;
         }
 
