@@ -3,6 +3,7 @@
 #include <iostream>
 #include <algorithm>
 #include <array>
+
 #include "Utils.h"
 
 namespace SoftRenderer

@@ -8,8 +8,7 @@
 #include <atomic>
 #include <thread>
 
-#include <glm/glm.hpp>
-
+#include "MathUtils.h"
 #include "Image.h"
 #include "FrameBuffer.h"
 #include "Buffer.h"

@@ -1,9 +1,4 @@
 #include "Camera.h"
-
-#include <glm/gtc/matrix_transform.hpp>
-
-#include "MathUtils.h"
-
 namespace SoftRenderer
 {
 	static const glm::vec3 UP = { 0, 1, 0 };
@@ -25,6 +20,6 @@ namespace SoftRenderer
 
 	glm::mat4 Camera::getProjMatrix() const
 	{
-		return glm::perspective(MathUtils::toRadians(mFovy), mAspect, mNear, mFar);
+		return glm::perspective(Math::toRadians(mFovy), mAspect, mNear, mFar);
 	}
 }

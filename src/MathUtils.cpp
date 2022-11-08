@@ -2,10 +2,12 @@
 
 namespace SoftRenderer
 {
-    const float MathUtils::PI = 3.14159265f;
-    const float MathUtils::EPSILON = 1e-5f;
+    const float Math::PI = 3.14159265359f;
+    const float Math::TWO_PI = 6.28318530718f;
+    const float Math::HALF_PI = 1.57079632679f;
+    const float Math::EPSILON = 1e-5f;
 
-    float MathUtils::toRadians(float degrees)
+    float Math::toRadians(float degrees)
     {
         return (PI / 180) * (degrees);
     }
@@ -26,7 +28,7 @@ namespace SoftRenderer
      *
      * see http://www.songho.ca/opengl/gl_camera.html
      */
-    glm::mat4 MathUtils::lootAt(const glm::vec3& eye, const glm::vec3& target, const glm::vec3& up)
+    glm::mat4 Math::lootAt(const glm::vec3& eye, const glm::vec3& target, const glm::vec3& up)
     {
         glm::vec3 zAxis = glm::normalize(eye -  target);
         glm::vec3 xAxis = glm::normalize(glm::cross(up, zAxis));
@@ -44,7 +46,7 @@ namespace SoftRenderer
         return m;
     }
 
-    glm::mat4 MathUtils::calViewportMatrix(int width, int height)
+    glm::mat4 Math::calViewportMatrix(int width, int height)
     {
         glm::mat4 viewportMat;
         float hWidth = width * 0.5f;
@@ -74,7 +76,7 @@ namespace SoftRenderer
      *
      * see http://www.songho.ca/opengl/gl_projectionmatrix.html
      */
-	glm::mat4 MathUtils::calPerspectiveProjMatrix(float fovy, float aspect, float near, float far)
+	glm::mat4 Math::calPerspectiveProjMatrix(float fovy, float aspect, float near, float far)
 	{
         glm::mat4 pMat;
         const float tanHalfFovy = std::tan(fovy * 0.5f);
@@ -99,7 +101,7 @@ namespace SoftRenderer
      *
      * see http://docs.gl/gl2/glOrtho
      */
-	glm::mat4 MathUtils::calOrthoProjMatrix(float left, float right, float bottom, float top, float near, float far)
+	glm::mat4 Math::calOrthoProjMatrix(float left, float right, float bottom, float top, float near, float far)
 	{
         glm::mat4 pMat;
         pMat[0][0] = 2.0f / (right - left);           pMat[0][1] = 0.0f;                           pMat[0][2] = 0.0f;                         pMat[0][3] = 0.0f;
@@ -110,12 +112,12 @@ namespace SoftRenderer
         return pMat;
 	}
 
-    float MathUtils::uchar2float(unsigned char value)
+    float Math::uchar2float(unsigned char value)
     {
         return value / 255.0f;
     }
 
-    unsigned char MathUtils::float2uchar(float value)
+    unsigned char Math::float2uchar(float value)
     {
         return static_cast<unsigned char>(value * 255.0f);
     }

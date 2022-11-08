@@ -3,9 +3,6 @@
 #include <memory>
 #include <iostream>
 
-#include <glm/glm.hpp>
-#include <glm/gtx/compatibility.hpp>
-
 #include "MathUtils.h"
 #include "Mesh.h"
 #include "Texture.h"

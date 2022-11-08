@@ -1,15 +1,11 @@
 #pragma once
 
+#include <BS_thread_pool_light.hpp>
 
+#include "MathUtils.h"
 #include "Mesh.h"
 #include "Shader.h"
 #include "FrameBuffer.h"
-
-#include <BS_thread_pool_light.hpp>
-
-#include <glm/glm.hpp>
-#include <glm/gtc/type_aligned.hpp>
-
 
 namespace SoftRenderer
 {

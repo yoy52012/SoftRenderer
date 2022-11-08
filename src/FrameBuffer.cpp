@@ -1,7 +1,7 @@
 #include "FrameBuffer.h"
 
-#include<cassert>
-#include<iostream>
+#include <cassert>
+#include <iostream>
 
 namespace SoftRenderer
 {

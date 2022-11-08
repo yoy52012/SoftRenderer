@@ -307,7 +307,7 @@ namespace SoftRenderer
         widthSegments  = std::max<uint32_t>(3, widthSegments);
         heightSegments = std::max<uint32_t>(2, heightSegments);
 
-        const float thetaEnd = std::min<float>(thetaStart + thetaLength, MathUtils::PI);
+        const float thetaEnd = std::min<float>(thetaStart + thetaLength, Math::PI);
 
         uint32_t index = 0;
 		std::vector<std::vector<uint32_t>> grid;
@@ -335,7 +335,7 @@ namespace SoftRenderer
 			{
                 uOffset = 0.5f / static_cast<float>(widthSegments);
             }
-            else if (iy == heightSegments && thetaEnd == MathUtils::PI)
+            else if (iy == heightSegments && thetaEnd == Math::PI)
 			{
                 uOffset = -0.5f / static_cast<float>(widthSegments);
             }
@@ -384,7 +384,7 @@ namespace SoftRenderer
 				}
 
 
-				if (iy != heightSegments - 1 || thetaEnd < MathUtils::PI)
+				if (iy != heightSegments - 1 || thetaEnd < Math::PI)
 				{
                     indices.push_back(b);
                     indices.push_back(c);

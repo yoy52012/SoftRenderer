@@ -1,11 +1,15 @@
 #pragma once
 
+
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/compatibility.hpp>
+#include <glm/gtc/type_aligned.hpp>
+
 
 namespace SoftRenderer
 {
-
-	class MathUtils
+	class Math
 	{
 	public:
 		static float toRadians(float degrees);
@@ -24,7 +28,8 @@ namespace SoftRenderer
 		
 	public:
 		static const float PI;
+		static const float TWO_PI;
+		static const float HALF_PI;
 		static const float EPSILON;
 	};
-
 }

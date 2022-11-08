@@ -3,7 +3,7 @@
 #include <vector>
 #include <memory>
 
-#include <glm/glm.hpp>
+#include "MathUtils.h"
 
 namespace SoftRenderer
 {
@@ -35,8 +35,9 @@ namespace SoftRenderer
 	private:
 		std::vector<uint8_t> mColorBuffer;
 		std::vector<float> mDepthBuffer;
-		unsigned int mWidth;
-		unsigned int mHeight;
+
+		uint32_t mWidth;
+		uint32_t mHeight;
 	};
 
 }
