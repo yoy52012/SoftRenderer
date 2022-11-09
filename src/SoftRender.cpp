@@ -441,7 +441,8 @@ void main()
 
     glm::vec3 position(0.0f, 0.0f, 5.0f);
     glm::vec3 target(0.0f, 0.0f, 0.0f);
-    Camera camera(position, target, 1.0);
+    Camera camera(60.0f, (float)500 / (float)500, 0.01f, 100.0f);
+    camera.lookAt(position, target);
 
     Vertex v1, v2, v3;
     v1.position = glm::vec3(-0.5f, -0.5f, 0.0f);
