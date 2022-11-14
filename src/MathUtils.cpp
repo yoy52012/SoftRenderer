@@ -121,6 +121,44 @@ namespace SoftRenderer
     {
         return static_cast<unsigned char>(value * 255.0f);
     }
+
+    glm::quat Math::createQuatFromVector(const glm::vec3& from, const glm::vec3& to)
+    {
+        glm::quat q;
+
+        float r = glm::dot(from, to) + 1.0f;
+        if (r < Math::EPSILON) 
+        {
+            // vFrom and vTo point in opposite directions
+            r = 0;
+
+            if (std::abs(from.x) > std::abs(from.z)) 
+            {
+                q.x = -from.y;
+                q.y = from.x;
+                q.z = 0;
+                q.w = r;
+            }
+            else 
+            {
+                q.x = 0;
+                q.y = -from.z;
+                q.z = from.y;
+                q.w = r;
+            }
+
+        }
+        else 
+        {
+            // crossVectors( vFrom, vTo ); 
+            q.x = from.y * to.z - from.z * to.y;
+            q.y = from.z * to.x - from.x * to.z;
+            q.z = from.x * to.y - from.y * to.x;
+            q.w = r;
+        }
+
+        return glm::normalize(q);
+    }
 }
 
 

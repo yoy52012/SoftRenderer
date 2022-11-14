@@ -407,11 +407,18 @@ unsigned int m_fps = 0;
 
 void main()
 {
+    glm::vec3 from = {1, 2, 3};
+    glm::vec3 to = {-5, 8,2 };
+    from = glm::normalize(from);
+    to = glm::normalize(to);
+    auto q = Math::createQuatFromVector(from, to);
+    auto q1 = glm::rotation(from, to);
+
     //setupWindow(nullptr, WndProc);
     Window* window = Window::create("hello", 500, 500);
 
-    window->setKeyCallback(std::bind(&keyCallback, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
-    window->setMouseButtonCallback(std::bind(&mouseButtonCallback, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+    //window->setKeyCallback(std::bind(&keyCallback, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
+    //window->setMouseButtonCallback(std::bind(&mouseButtonCallback, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 
     window->setWindowTitle("SoftRenderer");
     
@@ -505,7 +512,7 @@ void main()
 
     modelMat = glm::translate(modelMat, glm::vec3(0.0f, 0.0f, 0.0f));
 
-    while (!window->should_close())
+    while (!window->shouldClose())
     {
         render.clearColor(glm::vec4(0.1, 0.1, 0.1, 1.0));
         render.clearDepth(0.0f);

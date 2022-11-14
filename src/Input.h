@@ -5,6 +5,8 @@ namespace SoftRenderer
 {
     enum InputKeyCode
     {
+        KEY_UNKNOWN         =   -1,
+
         KEY_SPACE           =   32,
         KEY_APOSTROPHE      =   39,  /* ' */
         KEY_COMMA           =   44,  /* , */
@@ -136,6 +138,27 @@ namespace SoftRenderer
         PRESS,
         RELEASE,
         REPEAT
+    };
+
+
+    enum InputKeyMod
+    {
+        KEY_MOD_SHIFT = 1,
+        KEY_MOD_CONTROL = 1 << 1,
+        KEY_MOD_ALT = 1 << 2,
+        KEY_MOD_SUPER = 1 << 3,
+        KEY_MOD_CAPS_LOCK = 1 << 4,
+        KEY_MOD_NUM_LOCK = 1 << 5,
+    };
+
+    enum InputMod
+    {
+        SHIFT     = 0x0001,
+        CONTROL   = 0x0002,
+        ALT       = 0x0004,
+        SUPER     = 0x0008,
+        CAPS_LOCK = 0x0010,
+        NUM_LOCK  = 0x0020
     };
 
     enum InputMouseButton

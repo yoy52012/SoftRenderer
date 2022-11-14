@@ -11,8 +11,210 @@
 
 #define _CRT_SECURE_NO_WARNINGS
 
+#define UNUSED_VAR(x) ((void)(x))
+
+
 namespace SoftRenderer
 {
+
+    struct WindowImpl
+    {
+        void init(const std::string& title, int width, int height);
+        void destroy();
+
+        HWND createNativeWindow(const std::string& title, int width, int height);
+        void createSurface(HWND handle, int width, int height, HDC* out_memory_dc);
+        void presentSurface();
+
+        void pollEvent();
+
+        void drawBuffer(const FrameBuffer::Ptr& buffer);
+
+        void setWindowTitle(const std::string& title);
+
+        void getWindowSize(int* width, int* height);
+        void setWindowSize(int width, int height);
+
+        int getKey(int key);
+        int getMouseButton(int button);
+        void getCursorPos(double* xpos, double* ypos);
+        void setCursorPos(double xpos, double ypos);
+
+        void setKeyCallback(KeyCallback keyCallback);
+        void setMouseButtonCallback(MouseButtonCallback mouseButtonCallback);
+        void setCursorPosCallback(CursorPositionCallback cursorPositionCallback);
+        void setCursorEnterCallback(CursorEnterCallback cursorEnterCallback);
+        void setScrollCallback(MouseScrollCallback mouseScrollCallback);
+
+
+        // Internal Event API
+        void inputKeyNotify(int key, int scancode, int action, int mods);
+        void inputScrollNotify(double xoffset, double yoffset);
+        void inputMouseClickNotify(int button, int action, int mods);
+        void inputCursorPosCallback(double x, double y);
+        void inputCursorEnterCallback(bool entered);
+
+
+        void initKeyMaps();
+
+        struct
+        {
+            KeyCallback key;
+            MouseButtonCallback mousebutton;
+            MouseScrollCallback scroll;
+            CursorPositionCallback cursorPos;
+            CursorEnterCallback cursorEnter;
+        }mCallbacks;
+
+        int mWidth = 0;
+
+        int mHeight = 0;
+
+        std::array<InputAction, InputKeyCode::KEY_LAST + 1> mKeys;
+
+        std::array<InputAction, InputMouseButton::MOUSE_BUTTON_LAST + 1> mMousebuttons;
+
+        std::unordered_map<int, InputKeyCode> mKeycodeMap;
+
+        bool mIsLockMods = false;
+
+        unsigned char* mFrameData = nullptr;
+
+        HWND mHandle;
+        HDC  mMemoryDc;
+
+        bool mIsCursorTracked;
+
+        // The last received cursor position, regardless of source
+        int mLastCursorPosX;
+        int mLastCursorPosY;
+    };
+
+    Window* Window::create(const std::string& title, int width, int height)
+    {
+        Window* window = new Window(title, width, height);
+        window->init(title, width, height);
+        return window;
+    }
+
+    Window::Window()
+    {
+    }
+
+    Window::Window(const std::string& title, int width, int height)
+    {
+        mWidth = width;
+        mHeight = height;
+    }
+
+    Window::~Window()
+    {
+    }
+
+    void Window::init(const std::string& title, int width, int height)
+    {
+        mImpl->init(title, width, height);
+    }
+
+    void Window::destroy()
+    {
+        mImpl->destroy();
+    }
+
+    bool Window::shouldClose()
+    {
+        return mShouldClose;
+    }
+
+    void Window::drawBuffer(const FrameBuffer::Ptr& buffer)
+    {
+        mImpl->drawBuffer(buffer);
+    }
+
+    void Window::pollEvent()
+    {
+        mImpl->pollEvent();
+    }
+
+    void Window::setWindowTitle(const std::string& title)
+    {
+        mImpl->setWindowTitle(title);
+    }
+
+    void Window::getWindowSize(int* width, int* height)
+    {
+        mImpl->getWindowSize(width, height);
+    }
+
+    void Window::setWindowSize(int width, int height)
+    {
+        mImpl->setWindowSize(width, height);
+    }
+
+    int Window::getKeyAction(int key)
+    {
+        return mImpl->getKey(key);
+    }
+
+    int Window::getMouseButtonAction(int button)
+    {
+        return mImpl->getMouseButton(button);
+    }
+
+    void Window::getCursorPos(double* xpos, double* ypos)
+    {
+        return mImpl->getCursorPos(xpos, ypos);
+    }
+
+    void Window::setCursorPos(double xpos, double ypos)
+    {
+        return mImpl->setCursorPos(xpos, ypos);
+    }
+
+    void Window::bindKeyCallback()
+    {
+        auto keyCallback = [this](int key, int scancode, int action, int mods)
+        {
+            if (action == InputAction::PRESS)
+                this->mKeyPressedEvent.invoke(key);
+
+            if (action == InputAction::RELEASE)
+                this->mKeyReleasedEvent.invoke(key);
+        };
+
+        mImpl->setKeyCallback(keyCallback);
+    }
+
+    void Window::bindMouseButtonCallbcak()
+    {
+        auto mouseButtonCallback = [this](int button, int action, int mods)
+        {
+
+            if (action == InputAction::PRESS)
+                this->mMouseButtonPressedEvent.invoke(button);
+
+            if (action == InputAction::RELEASE)
+                this->mMouseButtonReleasedEvent.invoke(button);
+        };
+
+        mImpl->setMouseButtonCallback(mouseButtonCallback);
+    }
+
+    void Window::bindCursorMoveCallback()
+    {
+        auto cursorMoveCallback = [this](double x, double y)
+        {
+            this->mCursorMoveEvent.invoke(static_cast<float>(x), static_cast<float>(y));
+        };
+
+        mImpl->setCursorPosCallback(cursorMoveCallback);
+    }
+
+    
+
+    /************************************************************************/
+    /*                Platform Code                                         */
+    /************************************************************************/
 
 #ifdef UNICODE
     static const wchar_t* const WINDOW_CLASS_NAME = L"Class";
@@ -24,25 +226,9 @@ namespace SoftRenderer
 
 #define LINE_SIZE 256
 
-    Window* Window::create(const std::string& title, int width, int height)
-    {
-        Window* window = new Window(title, width, height);
-        window->init(title, width, height);
-        return window;
-    }
-
-    Window::Window(const std::string& title, int width, int height)
-        :m_width(width), m_height(height), m_frame_data(nullptr)
-    {
-        assert(width > 0 && height > 0);
-    }
-
-    Window::~Window()
-    {
-    }
 
     // Returns the window style for the specified window
-    static DWORD getWindowStyle(const Window* window)
+    static DWORD getWindowStyle(const WindowImpl* window)
     {
         DWORD style = WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
 
@@ -51,7 +237,7 @@ namespace SoftRenderer
     }
 
     // Returns the extended window style for the specified window
-    static DWORD getWindowExStyle(const Window* window)
+    static DWORD getWindowExStyle(const WindowImpl* window)
     {
         DWORD style = WS_EX_APPWINDOW;
         return style;
@@ -62,192 +248,222 @@ namespace SoftRenderer
         int mods = 0;
 
         if (GetKeyState(VK_SHIFT) & 0x8000)
-            mods |= KeyMod::KEY_MOD_SHIFT;
+            mods |= InputKeyMod::KEY_MOD_SHIFT;
         if (GetKeyState(VK_CONTROL) & 0x8000)
-            mods |= KeyMod::KEY_MOD_CONTROL;
+            mods |= InputKeyMod::KEY_MOD_CONTROL;
         if (GetKeyState(VK_MENU) & 0x8000)
-            mods |= KeyMod::KEY_MOD_ALT;
+            mods |= InputKeyMod::KEY_MOD_ALT;
         if ((GetKeyState(VK_LWIN) | GetKeyState(VK_RWIN)) & 0x8000)
-            mods |= KeyMod::KEY_MOD_SUPER;
+            mods |= InputKeyMod::KEY_MOD_SUPER;
         if (GetKeyState(VK_CAPITAL) & 1)
-            mods |= KeyMod::KEY_MOD_CAPS_LOCK;
+            mods |= InputKeyMod::KEY_MOD_CAPS_LOCK;
         if (GetKeyState(VK_NUMLOCK) & 1)
-            mods |= KeyMod::KEY_MOD_NUM_LOCK;
+            mods |= InputKeyMod::KEY_MOD_NUM_LOCK;
 
         return mods;
     }
 
-    LRESULT CALLBACK Window::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
-    {
-        Window* window = (Window*)GetProp(hWnd, WINDOW_ENTRY_NAME);
-
-        if (window == nullptr) {
-            return DefWindowProc(hWnd, uMsg, wParam, lParam);
-        }
-
-        switch (uMsg)
-        {
-        case WM_CLOSE:
-            break;
-
-        case WM_KEYDOWN:
-        case WM_SYSKEYDOWN:
-        case WM_KEYUP:
-        case WM_SYSKEYUP:
-        {
-            int key, scancode = -1;
-            const int action = (HIWORD(lParam) & KF_UP) ? InputAction::RELEASE : InputAction::PRESS;
-            const int mods = getKeyMods();
-
-            scancode = (HIWORD(lParam) & (KF_EXTENDED | 0xff));
-            if (!scancode)
-            {
-                // NOTE: Some synthetic key messages have a scancode of zero
-                // HACK: Map the virtual key back to a usable scancode
-                scancode = MapVirtualKeyW((UINT)wParam, MAPVK_VK_TO_VSC);
-            }
-
-            if (window->m_keycode_map.find(scancode) != window->m_keycode_map.end())
-            {
-                key = window->m_keycode_map[scancode];
-            }
-
-            // The Ctrl keys require special handling
-            if (wParam == VK_CONTROL)
-            {
-                if (HIWORD(lParam) & KF_EXTENDED)
-                {
-                    // Right side keys have the extended key bit set
-                    key = InputKeyCode::KEY_RIGHT_CONTROL;
-                }
-                else
-                {
-                    key = InputKeyCode::KEY_LEFT_CONTROL;
-                }
-            }
-            else if (wParam == VK_PROCESSKEY)
-            {
-                // IME notifies that keys have been filtered by setting the
-                // virtual key-code to VK_PROCESSKEY
-                break;
-            }
-
-            window->inputKeyNotify(key, scancode, action, mods);
-
-            break;
-        }
-
-        case WM_LBUTTONDOWN:
-        case WM_RBUTTONDOWN:
-        case WM_MBUTTONDOWN:
-        case WM_XBUTTONDOWN:
-        case WM_LBUTTONUP:
-        case WM_RBUTTONUP:
-        case WM_MBUTTONUP:
-        case WM_XBUTTONUP:
-        {
-            int i, button, action;
-
-            if (uMsg == WM_LBUTTONDOWN || uMsg == WM_LBUTTONUP)
-                button = InputMouseButton::MOUSE_BUTTON_LEFT;
-            else if (uMsg == WM_RBUTTONDOWN || uMsg == WM_RBUTTONUP)
-                button = InputMouseButton::MOUSE_BUTTON_RIGHT;
-            else if (uMsg == WM_MBUTTONDOWN || uMsg == WM_MBUTTONUP)
-                button = InputMouseButton::MOUSE_BUTTON_MIDDLE;
-            
-            if (uMsg == WM_LBUTTONDOWN || uMsg == WM_RBUTTONDOWN ||
-                uMsg == WM_MBUTTONDOWN || uMsg == WM_XBUTTONDOWN)
-            {
-                action = InputAction::PRESS;
-            }
-            else
-            {
-                action = InputAction::RELEASE;
-            }
-
-            for (i = 0; i <= InputMouseButton::MOUSE_BUTTON_LAST; i++)
-            {
-                if (window->m_mousebutton_action[i] == InputAction::PRESS)
-                    break;
-            }
-
-            if (i > InputMouseButton::MOUSE_BUTTON_LAST)
-            {
-                SetCapture(hWnd);
-            }
-
-            window->inputMouseClickNotify(button, action, getKeyMods());
-
-            for (i = 0; i <= InputMouseButton::MOUSE_BUTTON_LAST; i++)
-            {
-                if (window->m_mousebutton_action[i] == InputAction::PRESS)
-                    break;
-            }
-
-            if (i > InputMouseButton::MOUSE_BUTTON_LAST)
-            {
-                ReleaseCapture();
-            }
-
-            if (uMsg == WM_XBUTTONDOWN || uMsg == WM_XBUTTONUP)
-                return TRUE;
-
-            return 0;
-        }
-        case WM_MOUSEMOVE:
-        {
-            const int x = GET_X_LPARAM(lParam);
-            const int y = GET_Y_LPARAM(lParam);
-
-            if (!window->mIsCursorTracked)
-            {
-                TRACKMOUSEEVENT tme;
-                ZeroMemory(&tme, sizeof(tme));
-                tme.cbSize = sizeof(tme);
-                tme.dwFlags = TME_LEAVE;
-                tme.hwndTrack = window->m_handle;
-                TrackMouseEvent(&tme);
-
-                window->mIsCursorTracked = true;
-                window->inputCursorEnterCallback(true);
-            }
-
-            window->inputCursorPosCallback(x, y);
-
-            window->mLastCursorPosX = x;
-            window->mLastCursorPosY = y;
-
-            return 0;
-        }
-
-        default:
-            break;
-        }
-
-        return (DefWindowProc(hWnd, uMsg, wParam, lParam));
-    }
-
-    void Window::init(const std::string& title, int width, int height)
+    void WindowImpl::init(const std::string& title, int width, int height)
     {
         initKeyMaps();
 
         HWND handle;
         HDC memory_dc;
 
-        handle =  createWindow(title, width, height);
+        handle = createNativeWindow(title, width, height);
         createSurface(handle, width, height, &memory_dc);
 
-        m_handle = handle;
-        m_memory_dc = memory_dc;
+        mHandle = handle;
+        mMemoryDc = memory_dc;
+        mWidth = width;
+        mHeight = height;
 
         SetProp(handle, WINDOW_ENTRY_NAME, this);
 
         ShowWindow(handle, SW_SHOW);
     }
 
-    void Window::initKeyMaps()
+    void WindowImpl::destroy()
     {
-        m_keycode_map = 
+        ShowWindow(mHandle, SW_HIDE);
+        RemoveProp(mHandle, WINDOW_ENTRY_NAME);
+
+        DeleteDC(mMemoryDc);
+        DestroyWindow(mHandle);
+
+        mFrameData = nullptr;
+        //free(m_frame_data);
+    }
+
+    void WindowImpl::pollEvent()
+    {
+        MSG msg;
+        while (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE))
+        {
+            {
+                TranslateMessage(&msg);
+                DispatchMessageW(&msg);
+            }
+        }
+    }
+
+    void WindowImpl::drawBuffer(const FrameBuffer::Ptr& buffer)
+    {
+        auto blitBufferData = [](const FrameBuffer::Ptr& src, unsigned char* dst) {
+            int width = src->getWidth();
+            int height = src->getHeight();
+            int r, c;
+
+            //assert(src->width == dst->width && src->height == dst->height);
+            //assert(dst->format == FORMAT_LDR && dst->channels == 4);
+
+            for (r = 0; r < height; r++) {
+                for (c = 0; c < width; c++) {
+                    int flipped_r = height - 1 - r;
+                    int src_index = (r * width + c) * 4;
+                    int dst_index = (flipped_r * width + c) * 4;
+
+                    unsigned char* src_pixel = &(src->getColorBuffer()[src_index]);
+
+                    //unsigned char* src_pixel = src.getColorBuffer();//&src.[src_index];
+                    unsigned char* dst_pixel = &dst[dst_index];
+                    dst_pixel[0] = src_pixel[2];  /* blue */
+                    dst_pixel[1] = src_pixel[1];  /* green */
+                    dst_pixel[2] = src_pixel[0];  /* red */
+                }
+            }
+        };
+
+        blitBufferData(buffer, mFrameData);
+
+        presentSurface();
+    }
+
+    void WindowImpl::setWindowTitle(const std::string& title)
+    {
+        auto createWideStringFromUTF8Win32 = [](const char* source)->WCHAR*
+        {
+            WCHAR* target;
+            int count;
+
+            count = MultiByteToWideChar(CP_UTF8, 0, source, -1, NULL, 0);
+            if (!count)
+            {
+                std::cerr << "Win32: Failed to convert string from UTF-8" << std::endl;
+                return NULL;
+            }
+
+            target = (WCHAR*)std::malloc(count * sizeof(WCHAR));
+            std::memset(target, 0, count * sizeof(WCHAR));
+
+            if (!MultiByteToWideChar(CP_UTF8, 0, source, -1, target, count))
+            {
+                free(target);
+                std::cerr << "Win32: Failed to convert string from UTF-8" << std::endl;
+                return NULL;
+            }
+
+            return target;
+        };
+
+
+        WCHAR* wideTitle = createWideStringFromUTF8Win32(title.c_str());
+        if (!wideTitle)
+            return;
+
+        SetWindowTextW(mHandle, wideTitle);
+        free(wideTitle);
+    }
+
+    void WindowImpl::getWindowSize(int* width, int* height)
+    {
+        RECT area;
+        GetClientRect(mHandle, &area);
+
+        if (width)
+            *width = area.right;
+        if (height)
+            *height = area.bottom;
+    }
+
+    void WindowImpl::setWindowSize(int width, int height)
+    {
+        assert(width >= 0);
+        assert(height >= 0);
+
+        RECT rect = { 0, 0, width, height };
+        AdjustWindowRectExForDpi(&rect, getWindowStyle(this), FALSE, getWindowExStyle(this), GetDpiForWindow(mHandle));
+
+        SetWindowPos(mHandle, HWND_TOP,
+            0, 0, rect.right - rect.left, rect.bottom - rect.top,
+            SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_NOMOVE | SWP_NOZORDER);
+    }
+
+    int WindowImpl::getKey(int key)
+    {
+        if (key < InputKeyCode::KEY_SPACE || key > InputKeyCode::KEY_LAST)
+        {
+            std::cerr << "Invalid key " << key << std::endl;
+            return InputAction::RELEASE;
+        }
+        return (int)mKeys[key];
+    }
+
+    int WindowImpl::getMouseButton(int button)
+    {
+        if (button < -1 || button > InputMouseButton::MOUSE_BUTTON_LAST)
+        {
+            std::cerr << "Invalid mouse button " << button << std::endl;
+            return InputAction::RELEASE;
+        }
+
+        return (int)mMousebuttons[button];
+    }
+
+    void WindowImpl::getCursorPos(double* xpos, double* ypos)
+    {
+        if (xpos)
+            *xpos = 0;
+        if (ypos)
+            *ypos = 0;
+
+        POINT pos;
+
+        if (GetCursorPos(&pos))
+        {
+            ScreenToClient(mHandle, &pos);
+
+            if (xpos)
+                *xpos = pos.x;
+            if (ypos)
+                *ypos = pos.y;
+        }
+    }
+
+    void WindowImpl::setCursorPos(double xpos, double ypos)
+    {
+        if (xpos != xpos || xpos < -DBL_MAX || xpos > DBL_MAX ||
+            ypos != ypos || ypos < -DBL_MAX || ypos > DBL_MAX)
+        {
+           std::cerr <<  "Invalid cursor position " << "(" << xpos << "," << ypos << ")" << std::endl;
+            return;
+        }
+
+        //if (!platform.windowFocused(window))
+        //    return;
+
+        POINT pos = { (int)xpos, (int)ypos };
+
+        ClientToScreen(mHandle, &pos);
+        SetCursorPos(pos.x, pos.y);
+
+        mLastCursorPosX = pos.x;
+        mLastCursorPosY = pos.y;
+    }
+
+    void WindowImpl::initKeyMaps()
+    {
+        mKeycodeMap =
         {
             {0x00B, InputKeyCode::KEY_0},
             {0x002, InputKeyCode::KEY_1},
@@ -374,181 +590,216 @@ namespace SoftRenderer
         };
     }
 
-    void Window::destroy()
+
+
+    LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
-        ShowWindow(m_handle, SW_HIDE);
-        RemoveProp(m_handle, WINDOW_ENTRY_NAME);
+        WindowImpl* window = (WindowImpl*)GetProp(hWnd, WINDOW_ENTRY_NAME);
 
-        DeleteDC(m_memory_dc);
-        DestroyWindow(m_handle);
+        if (window == nullptr) {
+            return DefWindowProc(hWnd, uMsg, wParam, lParam);
+        }
 
-        m_frame_data = nullptr;
-        //free(m_frame_data);
-    }
+        switch (uMsg)
+        {
+        case WM_CLOSE:
+            break;
 
-    bool Window::should_close()
-    {
-        return m_should_close;
-    }
+        case WM_KEYDOWN:
+        case WM_SYSKEYDOWN:
+        case WM_KEYUP:
+        case WM_SYSKEYUP:
+        {
+            int key, scancode = -1;
+            const int action = (HIWORD(lParam) & KF_UP) ? InputAction::RELEASE : InputAction::PRESS;
+            const int mods = getKeyMods();
 
-    void Window::drawBuffer(const FrameBuffer::Ptr& buffer)
-    {
-        auto private_blit_bgr = [](const FrameBuffer::Ptr& src, unsigned char* dst) {
-            int width = src->getWidth();
-            int height = src->getHeight();
-            int r, c;
+            scancode = (HIWORD(lParam) & (KF_EXTENDED | 0xff));
+            if (!scancode)
+            {
+                // NOTE: Some synthetic key messages have a scancode of zero
+                // HACK: Map the virtual key back to a usable scancode
+                scancode = MapVirtualKeyW((UINT)wParam, MAPVK_VK_TO_VSC);
+            }
 
-            //assert(src->width == dst->width && src->height == dst->height);
-            //assert(dst->format == FORMAT_LDR && dst->channels == 4);
+            // HACK: Alt+PrtSc has a different scancode than just PrtSc
+            if (scancode == 0x54)
+                scancode = 0x137;
 
-            for (r = 0; r < height; r++) {
-                for (c = 0; c < width; c++) {
-                    int flipped_r = height - 1 - r;
-                    int src_index = (r * width + c) * 4;
-                    int dst_index = (flipped_r * width + c) * 4;
+            // HACK: Ctrl+Pause has a different scancode than just Pause
+            if (scancode == 0x146)
+                scancode = 0x45;
 
-                    unsigned char* src_pixel = &(src->getColorBuffer()[src_index]);
+            // HACK: CJK IME sets the extended bit for right Shift
+            if (scancode == 0x136)
+                scancode = 0x36;
 
-                    //unsigned char* src_pixel = src.getColorBuffer();//&src.[src_index];
-                    unsigned char* dst_pixel = &dst[dst_index];
-                    dst_pixel[0] = src_pixel[2];  /* blue */
-                    dst_pixel[1] = src_pixel[1];  /* green */
-                    dst_pixel[2] = src_pixel[0];  /* red */
+            key = window->mKeycodeMap[scancode];
+
+            // The Ctrl keys require special handling
+            if (wParam == VK_CONTROL)
+            {
+                if (HIWORD(lParam) & KF_EXTENDED)
+                {
+                    // Right side keys have the extended key bit set
+                    key = InputKeyCode::KEY_RIGHT_CONTROL;
+                }
+                else
+                {
+                    // NOTE: Alt Gr sends Left Ctrl followed by Right Alt
+                    // HACK: We only want one event for Alt Gr, so if we detect
+                    //       this sequence we discard this Left Ctrl message now
+                    //       and later report Right Alt normally
+                    MSG next;
+                    const DWORD time = GetMessageTime();
+
+                    if (PeekMessageW(&next, NULL, 0, 0, PM_NOREMOVE))
+                    {
+                        if (next.message == WM_KEYDOWN ||
+                            next.message == WM_SYSKEYDOWN ||
+                            next.message == WM_KEYUP ||
+                            next.message == WM_SYSKEYUP)
+                        {
+                            if (next.wParam == VK_MENU &&
+                                (HIWORD(next.lParam) & KF_EXTENDED) &&
+                                next.time == time)
+                            {
+                                // Next message is Right Alt down so discard this
+                                break;
+                            }
+                        }
+                    }
+
+                    key = InputKeyCode::KEY_LEFT_CONTROL;
                 }
             }
-        };
-
-        private_blit_bgr(buffer, m_frame_data);
-
-        presentSurface();
-    }
-
-    void Window::pollEvent()
-    {
-        MSG msg;
-        while (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE))
-        {
+            else if (wParam == VK_PROCESSKEY)
             {
-                TranslateMessage(&msg);
-                DispatchMessageW(&msg);
+                // IME notifies that keys have been filtered by setting the
+                // virtual key-code to VK_PROCESSKEY
+                break;
             }
+
+            if (action == InputAction::RELEASE && wParam == VK_SHIFT)
+            {
+                // HACK: Release both Shift keys on Shift up event, as when both
+                //       are pressed the first release does not emit any event
+                // NOTE: The other half of this is in _glfwPollEventsWin32
+                window->inputKeyNotify(InputKeyCode::KEY_LEFT_SHIFT, scancode, action, mods);
+                window->inputKeyNotify(InputKeyCode::KEY_RIGHT_SHIFT, scancode, action, mods);
+            }
+            else if (wParam == VK_SNAPSHOT)
+            {
+                // HACK: Key down is not reported for the Print Screen key
+                window->inputKeyNotify(key, scancode, InputAction::PRESS, mods);
+                window->inputKeyNotify(key, scancode, InputAction::RELEASE, mods);
+            }
+            else
+            {
+                window->inputKeyNotify(key, scancode, action, mods);
+            }
+
+            break;
         }
-    }
 
-    void Window::setKeyCallback(KeyCallback keyCallback)
-    {
-        m_callbacks.key = keyCallback;
-    }
-
-    void Window::setMouseButtonCallback(MouseButtonCallback mouseButtonCallback)
-    {
-        m_callbacks.mousebutton = mouseButtonCallback;
-    }
-
-    void Window::setCursorPosCallback(CursorPositionCallback cursorPositionCallback)
-    {
-        m_callbacks.cursorPos = cursorPositionCallback;
-    }
-
-    void Window::setCursorEnterCallback(CursorEnterCallback cursorEnterCallback)
-    {
-        m_callbacks.cursorEnter = cursorEnterCallback;
-    }
-
-    void Window::getCursorPos(double* x, double* y)
-    {
-        POINT pos;
-
-        if (GetCursorPos(&pos))
+        case WM_LBUTTONDOWN:
+        case WM_RBUTTONDOWN:
+        case WM_MBUTTONDOWN:
+        case WM_XBUTTONDOWN:
+        case WM_LBUTTONUP:
+        case WM_RBUTTONUP:
+        case WM_MBUTTONUP:
+        case WM_XBUTTONUP:
         {
-            ScreenToClient(m_handle, &pos);
+            int i, button, action;
 
-            if (x)
-                *x = pos.x;
-            if (y)
-                *y = pos.y;
+            if (uMsg == WM_LBUTTONDOWN || uMsg == WM_LBUTTONUP)
+                button = InputMouseButton::MOUSE_BUTTON_LEFT;
+            else if (uMsg == WM_RBUTTONDOWN || uMsg == WM_RBUTTONUP)
+                button = InputMouseButton::MOUSE_BUTTON_RIGHT;
+            else if (uMsg == WM_MBUTTONDOWN || uMsg == WM_MBUTTONUP)
+                button = InputMouseButton::MOUSE_BUTTON_MIDDLE;
+
+            if (uMsg == WM_LBUTTONDOWN || uMsg == WM_RBUTTONDOWN ||
+                uMsg == WM_MBUTTONDOWN || uMsg == WM_XBUTTONDOWN)
+            {
+                action = InputAction::PRESS;
+            }
+            else
+            {
+                action = InputAction::RELEASE;
+            }
+
+            for (i = 0; i <= InputMouseButton::MOUSE_BUTTON_LAST; i++)
+            {
+                if (window->mMousebuttons[i] == InputAction::PRESS)
+                    break;
+            }
+
+            if (i > InputMouseButton::MOUSE_BUTTON_LAST)
+            {
+                SetCapture(hWnd);
+            }
+
+            window->inputMouseClickNotify(button, action, getKeyMods());
+
+            for (i = 0; i <= InputMouseButton::MOUSE_BUTTON_LAST; i++)
+            {
+                if (window->mMousebuttons[i] == InputAction::PRESS)
+                    break;
+            }
+
+            if (i > InputMouseButton::MOUSE_BUTTON_LAST)
+            {
+                ReleaseCapture();
+            }
+
+            if (uMsg == WM_XBUTTONDOWN || uMsg == WM_XBUTTONUP)
+                return TRUE;
+
+            return 0;
         }
-    }
-
-    void Window::setCursorPos(double x, double y)
-    {
-        POINT pos = { (int)x, (int)y };
-
-        ClientToScreen(m_handle, &pos);
-        SetCursorPos(pos.x, pos.y);
-
-        mLastCursorPosX = pos.x;
-        mLastCursorPosY = pos.y;
-    }
-
-    WCHAR* createWideStringFromUTF8Win32(const char* source)
-    {
-        WCHAR* target;
-        int count;
-
-        count = MultiByteToWideChar(CP_UTF8, 0, source, -1, NULL, 0);
-        if (!count)
+        case WM_MOUSEMOVE:
         {
-            std::cerr << "Win32: Failed to convert string from UTF-8" << std::endl;
-            return NULL;
+            const int x = GET_X_LPARAM(lParam);
+            const int y = GET_Y_LPARAM(lParam);
+
+            if (!window->mIsCursorTracked)
+            {
+                TRACKMOUSEEVENT tme;
+                ZeroMemory(&tme, sizeof(tme));
+                tme.cbSize = sizeof(tme);
+                tme.dwFlags = TME_LEAVE;
+                tme.hwndTrack = window->mHandle;
+                TrackMouseEvent(&tme);
+
+                window->mIsCursorTracked = true;
+                window->inputCursorEnterCallback(true);
+            }
+
+            window->inputCursorPosCallback(x, y);
+
+            window->mLastCursorPosX = x;
+            window->mLastCursorPosY = y;
+
+            return 0;
         }
 
-        target = (WCHAR*)std::malloc(count * sizeof(WCHAR));
-        std::memset(target, 0, count * sizeof(WCHAR));
-
-        if (!MultiByteToWideChar(CP_UTF8, 0, source, -1, target, count))
-        {
-            free(target);
-            std::cerr << "Win32: Failed to convert string from UTF-8" << std::endl;
-            return NULL;
+        default:
+            break;
         }
 
-        return target;
+        return (DefWindowProc(hWnd, uMsg, wParam, lParam));
     }
 
-    void Window::setWindowTitle(const std::string& title)
-    {
-        WCHAR* wideTitle = createWideStringFromUTF8Win32(title.c_str());
-        if (!wideTitle)
-            return;
-
-        SetWindowTextW(m_handle, wideTitle);
-        free(wideTitle);
-    }
-
-    void Window::getWindowSize(int* width, int* height)
-    {
-        RECT area;
-        GetClientRect(m_handle, &area);
-
-        if (width)
-            *width = area.right;
-        if (height)
-            *height = area.bottom;
-    }
-
-    void Window::setWindowSize(int width, int height)
-    {
-        assert(width >= 0);
-        assert(height >= 0);
-
-        RECT rect = { 0, 0, width, height };
-        AdjustWindowRectExForDpi(&rect, getWindowStyle(this), FALSE, getWindowExStyle(this), GetDpiForWindow(m_handle));
-
-        SetWindowPos(m_handle, HWND_TOP,
-            0, 0, rect.right - rect.left, rect.bottom - rect.top,
-            SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_NOMOVE | SWP_NOZORDER);
-    }
-
-
-    HWND Window::createWindow(const std::string& title, int width, int height)
+    HWND WindowImpl::createNativeWindow(const std::string& title, int width, int height)
     {
         // https://blog.csdn.net/bizhu12/article/details/6667580       
         // Registe Class 
         WNDCLASS window_class;
         ZeroMemory(&window_class, sizeof(window_class));
         window_class.style = CS_HREDRAW | CS_VREDRAW;
-        window_class.lpfnWndProc = Window::WndProc;
+        window_class.lpfnWndProc = WndProc;
         window_class.cbClsExtra = 0;
         window_class.cbWndExtra = 0;
         window_class.hInstance = GetModuleHandle(NULL);
@@ -587,7 +838,7 @@ namespace SoftRenderer
         return handle;
     }
 
-    void Window::createSurface(HWND handle, int width, int height, HDC* out_memory_dc)
+    void WindowImpl::createSurface(HWND handle, int width, int height, HDC* out_memory_dc)
     {
         BITMAPINFOHEADER bi_header;
         HBITMAP dib_bitmap;
@@ -607,7 +858,7 @@ namespace SoftRenderer
         bi_header.biBitCount = 32;
         bi_header.biCompression = BI_RGB;
         dib_bitmap = CreateDIBSection(memory_dc, (BITMAPINFO*)&bi_header,
-            DIB_RGB_COLORS, (void**)&m_frame_data,
+            DIB_RGB_COLORS, (void**)&mFrameData,
             nullptr, 0);
         assert(dib_bitmap != nullptr);
         old_bitmap = (HBITMAP)SelectObject(memory_dc, dib_bitmap);
@@ -616,32 +867,63 @@ namespace SoftRenderer
         *out_memory_dc = memory_dc;
     }
 
-    void Window::presentSurface()
+    void WindowImpl::presentSurface()
     {
-        HDC window_dc = GetDC(m_handle);
-        HDC memory_dc = m_memory_dc;
+        HDC windowDc = GetDC(mHandle);
+        HDC memoryDc = mMemoryDc;
         //auto surface = window->surface;
-        int width = m_width;
-        int height = m_height;
-        BitBlt(window_dc, 0, 0, width, height, memory_dc, 0, 0, SRCCOPY);
-        ReleaseDC(m_handle, window_dc);
+        int width = mWidth;
+        int height = mHeight;
+        BitBlt(windowDc, 0, 0, width, height, memoryDc, 0, 0, SRCCOPY);
+        ReleaseDC(mHandle, windowDc);
     }
 
-    void Window::inputKeyNotify(int key, int scancode, int action, int mods)
+    void WindowImpl::setKeyCallback(KeyCallback keyCallback)
     {
+        mCallbacks.key = keyCallback;
+    }
+
+    void WindowImpl::setMouseButtonCallback(MouseButtonCallback mouseButtonCallback)
+    {
+        mCallbacks.mousebutton = mouseButtonCallback;
+    }
+
+    void WindowImpl::setCursorPosCallback(CursorPositionCallback cursorPositionCallback)
+    {
+        mCallbacks.cursorPos = cursorPositionCallback;
+    }
+
+    void WindowImpl::setCursorEnterCallback(CursorEnterCallback cursorEnterCallback)
+    {
+        mCallbacks.cursorEnter = cursorEnterCallback;
+    }
+
+    void WindowImpl::setScrollCallback(MouseScrollCallback mouseScrollCallback)
+    {
+        mCallbacks.scroll = mouseScrollCallback;
+    }
+
+    void WindowImpl::inputKeyNotify(int key, int scancode, int action, int mods)
+    {
+        assert(key >= 0 || key == KEY_UNKNOWN);
+        assert(key <= KEY_LAST);
+        assert(action == InputAction::PRESS || action == InputAction::RELEASE);
+
         if (key >= 0 && key <= InputKeyCode::KEY_LAST)
         {
             bool repeated = false;
 
-            if (action == InputAction::RELEASE && m_key_action[key] == InputAction::RELEASE)
+            if (action == InputAction::RELEASE && mKeys[key] == InputAction::RELEASE)
             {
                 return;
             }
 
-            if (action == InputAction::PRESS && m_key_action[key] == InputAction::PRESS)
+            if (action == InputAction::PRESS && mKeys[key] == InputAction::PRESS)
             {
                 repeated = true;
             }
+
+            mKeys[key] = (InputAction)action;
 
             if (repeated)
             {
@@ -649,43 +931,66 @@ namespace SoftRenderer
             }
         }
 
-        if (!m_is_lock_mods)
-            mods &= ~(KeyMod::KEY_MOD_NUM_LOCK | KeyMod::KEY_MOD_CAPS_LOCK);
-
-        if (m_callbacks.key)
+        if (!mIsLockMods)
         {
-            m_callbacks.key(key, scancode, action, mods);
+            mods &= ~(InputKeyMod::KEY_MOD_NUM_LOCK | InputKeyMod::KEY_MOD_CAPS_LOCK);
+        }
+
+        if (mCallbacks.key)
+        {
+            mCallbacks.key(key, scancode, action, mods);
         }
     }
 
-    void Window::inputMouseClickNotify(int button, int action, int mods)
+    void WindowImpl::inputScrollNotify(double xoffset, double yoffset)
     {
+        assert(xoffset > -std::numeric_limits<double>::max());
+        assert(xoffset < std::numeric_limits<double>::max());
+        assert(yoffset > -std::numeric_limits<double>::max());
+        assert(yoffset < std::numeric_limits<double>::max());
+
+        if (mCallbacks.scroll)
+            mCallbacks.scroll(xoffset, yoffset);
+    }
+
+    void WindowImpl::inputMouseClickNotify(int button, int action, int mods)
+    {
+        assert(button >= 0);
+        assert(button <= InputMouseButton::MOUSE_BUTTON_LAST);
+        assert(action == InputAction::PRESS || action == InputAction::RELEASE);
+
         if (button < 0 || button > InputMouseButton::MOUSE_BUTTON_LAST)
             return;
 
-        if (!m_is_lock_mods)
-            mods &= ~(KeyMod::KEY_MOD_NUM_LOCK | KeyMod::KEY_MOD_CAPS_LOCK);
+        if (!mIsLockMods)
+            mods &= ~(InputKeyMod::KEY_MOD_NUM_LOCK | InputKeyMod::KEY_MOD_CAPS_LOCK);
 
+        mMousebuttons[button] = (InputAction)action;
 
-        if (m_callbacks.mousebutton)
+        if (mCallbacks.mousebutton)
         {
-            m_callbacks.mousebutton(button, action, mods);
+            mCallbacks.mousebutton(button, action, mods);
         }
     }
 
-    void Window::inputCursorPosCallback(double x, double y)
+    void WindowImpl::inputCursorPosCallback(double x, double y)
     {
-        if (m_callbacks.cursorPos)
+        assert(x > -std::numeric_limits<double>::max());
+        assert(x < std::numeric_limits<double>::max());
+        assert(y > -std::numeric_limits<double>::max());
+        assert(y < std::numeric_limits<double>::max());
+
+        if (mCallbacks.cursorPos)
         {
-            m_callbacks.cursorPos(x, y);
+            mCallbacks.cursorPos(x, y);
         }
     }
 
-    void Window::inputCursorEnterCallback(bool entered)
+    void WindowImpl::inputCursorEnterCallback(bool entered)
     {
-        if (m_callbacks.cursorEnter)
+        if (mCallbacks.cursorEnter)
         {
-            m_callbacks.cursorEnter(entered);
+            mCallbacks.cursorEnter(entered);
         }
     }
 

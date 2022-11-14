@@ -26,6 +26,7 @@ include_directories(
 
 add_definitions( -DGLM_FORCE_ALIGNED_GENTYPES)
 add_definitions( -DGLM_FORCE_INLINE)
+add_definitions( -DGLM_ENABLE_EXPERIMENTAL)
 
 add_definitions(-DRESOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/resource")
 
@@ -47,6 +48,7 @@ add_definitions(-DRESOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/resource")
 file(GLOB SOFTRENDERER_SRC
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Buffer.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Camera.cpp
+        #${CMAKE_CURRENT_SOURCE_DIR}/src/OrbitControls.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/FrameBuffer.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Graphics.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Image.cpp
@@ -59,6 +61,7 @@ file(GLOB SOFTRENDERER_SRC
         ${CMAKE_CURRENT_SOURCE_DIR}/src/SoftRender.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Texture.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Window.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/InputManager.cpp
         )
 
 
