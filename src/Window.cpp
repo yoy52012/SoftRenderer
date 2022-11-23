@@ -99,9 +99,13 @@ namespace SoftRenderer
 
     Window::Window()
     {
+        bindKeyCallback();
+        bindMouseButtonCallbcak();
+        bindCursorMoveCallback();
     }
 
     Window::Window(const std::string& title, int width, int height)
+        : Window()
     {
         mWidth = width;
         mHeight = height;
@@ -189,12 +193,15 @@ namespace SoftRenderer
     {
         auto mouseButtonCallback = [this](int button, int action, int mods)
         {
+            double xpos;
+            double ypos;
+            getCursorPos(&xpos, &ypos);
 
             if (action == InputAction::PRESS)
-                this->mMouseButtonPressedEvent.invoke(button);
+                this->mMouseButtonPressedEvent.invoke(button, xpos, ypos);
 
             if (action == InputAction::RELEASE)
-                this->mMouseButtonReleasedEvent.invoke(button);
+                this->mMouseButtonReleasedEvent.invoke(button, xpos, ypos);
         };
 
         mImpl->setMouseButtonCallback(mouseButtonCallback);

@@ -48,7 +48,7 @@ add_definitions(-DRESOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/resource")
 file(GLOB SOFTRENDERER_SRC
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Buffer.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Camera.cpp
-        #${CMAKE_CURRENT_SOURCE_DIR}/src/OrbitControls.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/OrbitControls.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/FrameBuffer.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Graphics.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Image.cpp

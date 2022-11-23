@@ -76,8 +76,8 @@ namespace SoftRenderer
 	public:
 		Event<int> mKeyPressedEvent;
 		Event<int> mKeyReleasedEvent;
-		Event<int> mMouseButtonPressedEvent;
-		Event<int> mMouseButtonReleasedEvent;
+		Event<int, float, float> mMouseButtonPressedEvent;
+		Event<int, float, float> mMouseButtonReleasedEvent;
 		Event<float, float> mCursorMoveEvent;
 	};
 }

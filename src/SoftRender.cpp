@@ -345,6 +345,7 @@ void draw(const std::array<Vertex, 3>& vertices, const glm::mat4& modelMat, cons
 #include "Utils.h"
 #include "Image.h"
 #include "Texture.h"
+#include "OrbitControls.h"
 
 
 
@@ -407,13 +408,6 @@ unsigned int m_fps = 0;
 
 void main()
 {
-    glm::vec3 from = {1, 2, 3};
-    glm::vec3 to = {-5, 8,2 };
-    from = glm::normalize(from);
-    to = glm::normalize(to);
-    auto q = Math::createQuatFromVector(from, to);
-    auto q1 = glm::rotation(from, to);
-
     //setupWindow(nullptr, WndProc);
     Window* window = Window::create("hello", 500, 500);
 
@@ -446,10 +440,12 @@ void main()
     //rasterizeTriangle(v0, v1, v2, frameBuffer, glm::vec4(1.0, 1.0, 0.0, 1.0));
     //rasterizeTriangle(v3, v4, v5, frameBuffer, glm::vec4(1.0, 1.0, 0.0, 1.0));
 
-    glm::vec3 position(0.0f, 0.0f, 5.0f);
+    glm::vec3 position(0.0f, 0.0f, -5.0f);
     glm::vec3 target(0.0f, 0.0f, 0.0f);
     Camera camera(60.0f, (float)500 / (float)500, 0.01f, 100.0f);
     camera.lookAt(position, target);
+
+    OrbitControllers orbitControllers(camera, window);
 
     Vertex v1, v2, v3;
     v1.position = glm::vec3(-0.5f, -0.5f, 0.0f);
@@ -523,7 +519,7 @@ void main()
 
         float degree = std::sinf(count) * 180.0f * 0.1;
         count += 0.001f;
-        modelMat = glm::rotate(glm::mat4(1.0f), degree, glm::vec3(0.0f, 1.0f, 0.0f));
+        //modelMat = glm::rotate(glm::mat4(1.0f), degree, glm::vec3(0.0f, 1.0f, 0.0f));
 
 
         uniforms->uModelMatrix = modelMat;
