@@ -101,11 +101,12 @@ namespace SoftRenderer
 
             uploadVertexData(subMesh->vertices, subMesh->indices);
             processVertexShader();
-            processFrustumClip();
+            //processFrustumClip();
             processPerspectiveDivide();
             processViewportTransform();
             processBackFaceCulling();
-            processRasterization();
+            //processRasterization();
+            ProcessFaceWireframe();
         }
     }
 
@@ -571,12 +572,43 @@ namespace SoftRenderer
     {
         for (auto& face : mRenderContex.faceBuffer) 
         {
-            if (!face.discard) 
+            if (face.discard) 
             {
-                rasterizeTriangle4(face);
+                continue;
             }
+
+            rasterizeTriangle4(face);
         }
     }
+
+     void Graphics::ProcessFaceWireframe()
+     {
+        glm::u8vec4 color{255};
+
+        for (auto &face : mRenderContex.faceBuffer) 
+        {
+            //auto &face = mRenderContex.faceBuffer[0];
+            if (face.discard) 
+            {
+                //continue;
+            }
+
+            for (int32_t i = 0; i < 3; i++) 
+            {
+                int32_t idx0 = face.indices[i];
+                int32_t idx1 = face.indices[(i + 1) % 3];
+
+                auto &v0 = mRenderContex.vertexBuffer[idx0];
+                auto &v1 = mRenderContex.vertexBuffer[idx1];
+
+
+
+
+
+                drawLine(v0.position, v1.position, glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
+            }
+        }
+     }
 
 
     void Graphics::rasterizeTriangle(const Shader::VertexData& vertex0, const Shader::VertexData& vertex1, const Shader::VertexData& vertex2)
@@ -929,60 +961,111 @@ namespace SoftRenderer
         }
     }
 
-    void Graphics::drawLine(const glm::vec2& v0, const glm::vec2& v1)
+    void Graphics::drawLine(const glm::vec4& v0, const glm::vec4& v1, const glm::vec4& color)
     {
         int32_t x0 = (int32_t)v0.x;
         int32_t y0 = (int32_t)v0.y;
         int32_t x1 = (int32_t)v1.x;
         int32_t y1 = (int32_t)v1.y;
 
-        bool steep = std::abs(y1 - y0) > std::abs(x1 - x0);
-
-        //check line's slop
-        if (steep)
+        bool steep = false;
+        if (std::abs(y0 - y1) > std::abs(x0 - x1)) 
         {
             std::swap(x0, y0);
             std::swap(x1, y1);
+            steep = true;
         }
 
-        //check line's direction
-        if (x0 > x1)
-        {
+        if (x0 > x1) {
             std::swap(x0, x1);
             std::swap(y0, y1);
         }
 
         int32_t dx = x1 - x0;
-        int32_t dy = y1 - y0;
+        int32_t dy = std::abs(y1 - y0);
 
-        int32_t d2x = dx << 1;
-        int32_t d2y = dy << 1; 
-        int32_t d2xd2y = d2x - d2y;
+        int32_t d2x = dx * 2;
+        int32_t d2y = dy * 2; 
+        int32_t d2yd2x = d2y - d2x;
 
         int32_t x = x0;
         int32_t y = y0;
 
-        int32_t p = dx - d2y;
-        for (int32_t i = 0; i <= dx; ++i)
+        int32_t p = d2y - dx;
+        for (int x = x0; x <= x1; x++)
         {
             if (steep)
             {
-                mBackBuffer->writeColor(y, x, glm::vec4(1.0, 1.0, 1.0, 1.0));
+                mBackBuffer->writeColor(y, x, color);
             }
             else {
-                mBackBuffer->writeColor(x, y, glm::vec4(1.0, 1.0, 1.0, 1.0));
+                mBackBuffer->writeColor(x, y, color);
             }
 
-            if (p <= 0)
+            if (p > 0)
             {
-                p += d2xd2y;
-                y += 1;
+                y += (y1 > y0 ? 1 : -1);
+                p += d2yd2x;
             }
             else
             {
-                p -= d2y; 
+                p += d2y; 
             }
-            x += 1;
+        }
+    }
+
+    void Graphics::drawLine2(glm::vec4 v0, glm::vec4 v1, const glm::u8vec4 &color) 
+    {
+        int x0 = (int) v0.x;
+        int y0 = (int) v0.y;
+        int x1 = (int) v1.x; 
+        int y1 = (int) v1.y;
+
+        float z0 = v0.z;
+        float z1 = v1.z;
+
+        bool steep = false;
+        if (std::abs(y0 - y1) > std::abs(x0 - x1)) 
+        {
+            std::swap(x0, y0);
+            std::swap(x1, y1);
+            steep = true;
+        }
+
+        if (x0 > x1) {
+            std::swap(x0, x1);
+            std::swap(y0, y1);
+            std::swap(z0, z1);
+        }
+
+        int dx = x1 - x0;
+        int dy = y1 - y0;
+        float dz = (x1 == x0) ? 0 : (z1 - z0) / (float) (x1 - x0);
+
+        int error = 0;
+        int dError = 2 * std::abs(dy);
+
+        int y = y0;
+        float z = z0;
+
+        for (int x = x0; x <= x1; x++) 
+        {
+            z += dz;
+            if (steep) 
+            {
+                mBackBuffer->writeColor(y, x, color);
+            } 
+            else 
+            {
+                mBackBuffer->writeColor(x, y, color);
+            }
+
+            error += dError;
+            if (error > dx) 
+            {
+                y += (y1 > y0 ? 1 : -1);
+                error -= 2 * dx;
+            }
         }
     }
 

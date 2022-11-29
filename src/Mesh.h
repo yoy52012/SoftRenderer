@@ -104,6 +104,8 @@ namespace SoftRenderer
 
 		static std::shared_ptr<Mesh> createSphere(float radius, float phiStart, float phiLength, float thetaStart, float thetaLength);
 
+		static std::shared_ptr<Mesh> createTorusKnot(float radius, float tube, uint32_t tubularSegments, uint32_t radialSegments, uint32_t p, uint32_t q);
+
 	public:
 		std::vector<std::shared_ptr<SubMesh>> subMeshs;
 	};

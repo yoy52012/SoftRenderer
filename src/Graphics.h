@@ -247,7 +247,9 @@ namespace SoftRenderer
 
         void setProjMatrix(const glm::mat4& mat);
 
-        void drawLine(const glm::vec2& v0, const glm::vec2& v1);
+        void drawLine(const glm::vec4& v0, const glm::vec4& v1, const glm::vec4& color);
+
+        void drawLine2(glm::vec4 v0, glm::vec4 v1, const glm::u8vec4 &color);
 
         void useProgram(std::shared_ptr<Program> program);
 
@@ -271,6 +273,8 @@ namespace SoftRenderer
         void processBackFaceCulling();
 
         void processRasterization();
+
+        void ProcessFaceWireframe();
 
     private:
         glm::vec3 perspectiveDivide(const glm::vec4& pos);

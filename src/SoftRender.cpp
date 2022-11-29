@@ -421,13 +421,13 @@ void main()
 
     //DrawBresenhamline(10, 10, 400, 100, frameBuffer, glm::vec4(0.0, 1.0, 0.0, 1.0));
 
-    DrawBresenhamline2(100, 250, 400, 250, frameBuffer, glm::vec4(0.0, 1.0, 0.0, 1.0));
-    DrawBresenhamline2(250, 100, 250, 400, frameBuffer, glm::vec4(0.0, 1.0, 0.0, 1.0));
-    DrawBresenhamline2(100, 400, 400, 100, frameBuffer, glm::vec4(0.0, 1.0, 0.0, 1.0));
-    DrawBresenhamline2(100, 100, 400, 400, frameBuffer, glm::vec4(0.0, 1.0, 0.0, 1.0));
+    // DrawBresenhamline2(100, 250, 400, 250, frameBuffer, glm::vec4(0.0, 1.0, 0.0, 1.0));
+    // DrawBresenhamline2(250, 100, 250, 400, frameBuffer, glm::vec4(0.0, 1.0, 0.0, 1.0));
+    // DrawBresenhamline2(100, 400, 400, 100, frameBuffer, glm::vec4(0.0, 1.0, 0.0, 1.0));
+    // DrawBresenhamline2(100, 100, 400, 400, frameBuffer, glm::vec4(0.0, 1.0, 0.0, 1.0));
 
-    DrawBresenhamline2(100, 300, 400, 200, frameBuffer, glm::vec4(0.0, 1.0, 0.0, 1.0));
-    DrawBresenhamline2(150, 100, 350, 400, frameBuffer, glm::vec4(0.0, 1.0, 0.0, 1.0));
+    // DrawBresenhamline2(100, 300, 400, 200, frameBuffer, glm::vec4(0.0, 1.0, 0.0, 1.0));
+    // DrawBresenhamline2(150, 100, 350, 400, frameBuffer, glm::vec4(0.0, 1.0, 0.0, 1.0));
 
     //glm::ivec2 v0 = {250, 400};
     //glm::ivec2 v1 = {400, 250};
@@ -468,6 +468,7 @@ void main()
     std::shared_ptr<Mesh> plane = Mesh::createPlane(2, 2, 1, 1);
     std::shared_ptr<Mesh> box = Mesh::createBox(2, 2, 2, 1, 1, 1);
     std::shared_ptr<Mesh> sphere = Mesh::createSphere(1.0f, 0.0f, 2.0f * Math::PI, 0.0f, Math::PI);
+    std::shared_ptr<Mesh> torusKnot = Mesh::createTorusKnot(10, 3, 64, 8, 2, 3);
 
     //Mesh mesh;
     //mesh.addTriangle(v1, v2, v3);
@@ -529,13 +530,27 @@ void main()
             
         //render.drawTriangle(v1, v2, v3);
         //render.drawTriangle(v4, v5, v6);
-        render.drawMesh1(plane.get());
+        render.drawMesh1(sphere.get());
 
-        //render.drawLine(glm::vec2(100, 10), glm::vec2(400, 40));
+        // render.drawLine2(glm::vec4(100, 10), glm::vec4(400, 40));
 
-        //render.drawLine(glm::vec2(100, 100), glm::vec2(400, 400));
+        // render.drawLine2(glm::vec4(100, 100), glm::vec4(400, 400));
 
-        //render.drawLine(glm::vec2(100, 180), glm::vec2(245, 440));
+        // render.drawLine2(glm::vec4(100, 180), glm::vec4(245, 440));
+
+        // auto v0 = glm::vec4(177.8312, 322.168, 0.0, 1.0);
+        // auto v1 = glm::vec4(141.746, 358.253, 0.0, 1.0);
+        // auto v2 = glm::vec4(177.8312, 177.8312, 0.0, 1.0);
+
+        auto v0 = glm::vec4(177.8312, 322.168, 0.0, 1.0);
+        auto v1 = glm::vec4(141.746, 358.253, 0.0, 1.0);
+        auto v2 = glm::vec4(177.8312, 177.8312, 0.0, 1.0);
+
+        auto color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+
+        //render.drawLine2(v0,v2, color);
+        //render.drawLine2(v2,v1, color);
+        //render.drawLine2(v1,v0, color);
 
         render.swapBuffer();
 
