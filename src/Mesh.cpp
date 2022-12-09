@@ -4,14 +4,41 @@
 
 namespace SoftRenderer
 {
-    SubMesh::SubMesh(const std::vector<glm::vec3>& positions, const std::vector<glm::vec3>& normals, const std::vector<glm::vec2>& uvs, const std::vector<uint32_t>& indices)
+    SubMesh::SubMesh(const std::vector<glm::vec3>& positions, const std::vector<glm::vec3>& normals, const std::vector<glm::vec2>& uvs, const std::vector<glm::vec3>& tangents, const std::vector<glm::vec4>& colors, const std::vector<uint32_t>& indices)
     {
         this->positions = positions;
         this->normals = normals;
         this->uvs = uvs;
+        this->tangents = tangents;
+        this->colors = colors;
         this->indices = indices;
 
-        flag = HasPosition | HasNormal | HasTexcoord;
+        flag = HasPosition | HasNormal | HasTexcoord | HasTangent | HasColor;
+
+        build();
+    }
+
+    SubMesh::SubMesh(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices)
+    {
+        this->vertices = vertices;
+        this->indices = indices;
+    }
+
+    SubMesh::SubMesh(const SubMesh& mesh)
+    {
+        this->vertices = mesh.vertices;
+        this->indices = mesh.indices;
+    }
+
+    SubMesh& SubMesh::operator=(const SubMesh& mesh)
+    {
+        if (&mesh == this) 
+        {
+            return *this;
+        }
+        this->vertices = mesh.vertices;
+        this->indices = mesh.indices;
+        return *this;
     }
 
     void SubMesh::addTriangle(const Vertex& v0, const Vertex& v1, const Vertex& v2)
@@ -40,7 +67,7 @@ namespace SoftRenderer
         return *this;
     }
 
-    SubMesh& SubMesh::setTangents(const std::vector<glm::vec4>& tangents)
+    SubMesh& SubMesh::setTangents(const std::vector<glm::vec3>& tangents)
     {
         this->tangents = tangents;
         flag |= MeshFlags::HasTangent;
@@ -120,7 +147,7 @@ namespace SoftRenderer
 
     void Mesh::addSubMesh(std::shared_ptr<SubMesh> subMesh)
     {
-        subMeshs.emplace_back(subMesh);
+        subMeshs.push_back(subMesh);
     }
 
     // Ref: https://github.com/mrdoob/three.js/blob/master/src/geometries/PlaneGeometry.js

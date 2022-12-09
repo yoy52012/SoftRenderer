@@ -17,9 +17,9 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 include_directories(
         "${THIRD_PARTY_DIR}/threadpool"
         "${THIRD_PARTY_DIR}/glm"
-        #"${THIRD_PARTY_DIR}/assimp/include"
-        #"${THIRD_PARTY_DIR}/assimp/contrib"
-        #"${CMAKE_CURRENT_BINARY_DIR}/third_party/assimp/include"
+        "${THIRD_PARTY_DIR}/assimp/include"
+        "${THIRD_PARTY_DIR}/assimp/contrib"
+        "${CMAKE_CURRENT_BINARY_DIR}/third_party/assimp/include"
         "${THIRD_PARTY_DIR}/stb"
         "${CMAKE_CURRENT_SOURCE_DIR}/src"
 )
@@ -31,18 +31,18 @@ add_definitions( -DGLM_ENABLE_EXPERIMENTAL)
 add_definitions(-DRESOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/resource")
 
 # assimp
-#set(BUILD_SHARED_LIBS OFF)
-#set(ASSIMP_NO_EXPORT ON)
-#set(ASSIMP_BUILD_TESTS OFF)
-#set(ASSIMP_INSTALL OFF)
-#set(ASSIMP_BUILD_ASSIMP_TOOLS OFF)
-#set(ASSIMP_BUILD_ZLIB ON)
-#
-#set(ASSIMP_BUILD_ALL_IMPORTERS_BY_DEFAULT FALSE)
-#set(ASSIMP_BUILD_OBJ_IMPORTER TRUE)
-#set(ASSIMP_BUILD_GLTF_IMPORTER TRUE)
-#
-#add_subdirectory(${THIRD_PARTY_DIR}/assimp)
+set(BUILD_SHARED_LIBS OFF)
+set(ASSIMP_NO_EXPORT ON)
+set(ASSIMP_BUILD_TESTS OFF)
+set(ASSIMP_INSTALL OFF)
+set(ASSIMP_BUILD_ASSIMP_TOOLS OFF)
+set(ASSIMP_BUILD_ZLIB ON)
+
+set(ASSIMP_BUILD_ALL_IMPORTERS_BY_DEFAULT FALSE)
+set(ASSIMP_BUILD_OBJ_IMPORTER TRUE)
+set(ASSIMP_BUILD_GLTF_IMPORTER TRUE)
+
+add_subdirectory(${THIRD_PARTY_DIR}/assimp)
 
 # main src
 file(GLOB SOFTRENDERER_SRC
@@ -62,6 +62,8 @@ file(GLOB SOFTRENDERER_SRC
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Texture.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Window.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/InputManager.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/SceneLoader.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/SceneNode.cpp
         )
 
 
@@ -74,11 +76,11 @@ add_executable(SoftRenderer
 if (WIN32)
     if (MSVC)
         target_link_libraries(SoftRenderer
-                #assimp
+                assimp
                 )
     else ()
         target_link_libraries(SoftRenderer
-                #assimp
+                assimp
                 )
     endif ()
 endif ()

@@ -14,7 +14,6 @@ namespace SoftRenderer
 		glm::vec3 scale;
 
 		
-
 		bool operator==(const Transform& rhs)
 		{
 			return this->position == rhs.position && this->rotation == rhs.rotation && this->scale == rhs.scale;

@@ -1,11 +1,25 @@
 #pragma once
 
 #include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/compatibility.hpp>
-#include <glm/gtc/type_aligned.hpp>
-#include <glm/gtc/quaternion.hpp>
+
 #include <glm/gtx/quaternion.hpp>
+
+#include <glm/ext/vector_relational.hpp> // equal, all
+
+#include <glm/gtc/matrix_transform.hpp> // Matrix transformation functions that follow the OpenGL fixed-function conventions.
+#include <glm/gtc/bitfield.hpp> // Fast bitfield operations on scalar and vector variables.
+#include <glm/gtc/color_space.hpp> // Conversion between linear RGB and sRGB color spaces.
+#include <glm/gtc/constants.hpp> // Provide a list of built-in constants.
+#include <glm/gtc/epsilon.hpp> // Approximate equality comparisons for floating-point numbers, possibly with a user-defined epsilon.
+#include <glm/gtc/matrix_access.hpp> // Functions to conveniently access the individual rows or columns of a matrix.
+#include <glm/gtc/matrix_inverse.hpp> // Additional matrix inverse functions.
+#include <glm/gtc/noise.hpp> // Define 2D, 3D and 4D procedural noise functions.
+#include <glm/gtc/packing.hpp> // Convert scalar and vector types to and from packed formats, saving space at the cost of precision. However, packing a value into a format that it was previously unpacked from is guaranteed to be lossless.
+#include <glm/gtc/quaternion.hpp> // Quaternions and operations upon thereof.
+#include <glm/gtc/random.hpp> // Probability distributions in up to four dimensions.
+#include <glm/gtc/round.hpp> // Various rounding operations and common special cases thereof.
+#include <glm/gtc/type_aligned.hpp> // Aligned vector types.
 
 
 namespace SoftRenderer
@@ -90,7 +104,7 @@ namespace SoftRenderer
             if (mRadius == 0) 
             {
                 mTheta = 0;
-                mPhi = 0;
+                mPhi = 0; 
 
             }
             else 
