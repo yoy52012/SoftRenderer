@@ -1,5 +1,5 @@
 #pragma once
-
+#define GLM_FORCE_ALIGNED_GENTYPES
 #include <glm/glm.hpp>
 #include <glm/gtx/compatibility.hpp>
 

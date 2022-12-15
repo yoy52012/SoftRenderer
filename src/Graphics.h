@@ -44,8 +44,42 @@ namespace SoftRenderer
         }
     };
 
+    using BufferId = uint32_t;
 
+    class Handle
+    {
+    public:
+        using HandleId = uint32_t;
+        static constexpr const HandleId nullid = HandleId{ std::numeric_limits<HandleId>::max() };
 
+        constexpr Handle() noexcept: object(nullid) {}
+
+        explicit Handle(HandleId id) noexcept : object(id) { }
+
+        // whether this Handle is initialized
+        explicit operator bool() const noexcept { return object != nullid; }
+
+        // clear the handle, this doesn't free associated resources
+        void clear() noexcept { object = nullid; }
+
+        // compare handles
+        bool operator==(const Handle& rhs) const noexcept { return object == rhs.object; }
+        bool operator!=(const Handle& rhs) const noexcept { return object != rhs.object; }
+        bool operator<(const Handle& rhs) const noexcept { return object < rhs.object; }
+        bool operator<=(const Handle& rhs) const noexcept { return object <= rhs.object; }
+        bool operator>(const Handle& rhs) const noexcept { return object > rhs.object; }
+        bool operator>=(const Handle& rhs) const noexcept { return object >= rhs.object; }
+
+        // get this handle's handleId
+        HandleId getId() const noexcept { return object; }
+
+    protected:
+        Handle(Handle const& rhs) noexcept = default;
+        Handle& operator=(Handle const& rhs) noexcept = default;
+
+    private:
+        HandleId object;
+    };
 
     class Graphics
     {
@@ -88,12 +122,16 @@ namespace SoftRenderer
 
         struct VertexResource
         {
-            size_t  id = 0;
+            uint32_t id = 0;
             Vertex  vertex = {};
 
             float* varyings = nullptr;
 
             glm::vec4 position = glm::vec4(0);
+
+            std::shared_ptr<float> varyings_append = nullptr;
+
+            uint32_t clip_mask = 0;
         };
 
         using VertexBuffer = std::vector<VertexResource>;
@@ -164,9 +202,9 @@ namespace SoftRenderer
 
         struct RenderContex
         {
-            inline static size_t calculateVaryingsAlignedSize(size_t varySize) 
+            inline static uint32_t calculateVaryingsAlignedSize(uint32_t varyCount) 
             {
-                return SOFTGL_ALIGNMENT * std::ceil(varySize * sizeof(float) / (float)SOFTGL_ALIGNMENT);
+                return SOFTGL_ALIGNMENT * std::ceil(varyCount * sizeof(float) / (float)SOFTGL_ALIGNMENT);
             }
 
             void createVertexBuffer(const std::vector<Vertex>& vertices)
@@ -179,6 +217,8 @@ namespace SoftRenderer
                     vertexBuffer[i].id = i;
                     vertexBuffer[i].vertex = vertices[i];
                     vertexBuffer[i].position = glm::vec4(0);
+                    vertexBuffer[i].varyings = nullptr;
+                    vertexBuffer[i].clip_mask = 0;
                 }
             }
 
@@ -196,7 +236,7 @@ namespace SoftRenderer
                 }
             }
 
-            void allocVertexVaringMemory(size_t varyCount = 0)
+            void allocVertexVaringMemory(uint32_t varyCount = 0)
             {
                 varyingsCount = varyCount;
                 varyingsAlignedSize = calculateVaryingsAlignedSize(varyCount);
@@ -204,21 +244,61 @@ namespace SoftRenderer
 
                 if (varyingsAlignedSize > 0)
                 {
-                    varyingsBuffer = std::shared_ptr<float>((float*)Memory::alignedMalloc(varyingsAlignedSize * vertexBuffer.size()), [](const float* ptr) { Memory::alignedFree((void*)ptr); });
+                    //varyingsBuffer = std::shared_ptr<float>((float*)Memory::alignedMalloc(varyingsAlignedSize * vertexBuffer.size()), [](const float* ptr) { Memory::alignedFree((void*)ptr); });
 
                     for (int32_t i = 0; i < vertexBuffer.size(); i++)
                     {
-                        vertexBuffer[i].varyings = varyingsBuffer.get() + i * varyingsAlignedSize / sizeof(float);
+                        float* varyingsPtr = vertexBuffer[i].varyings;
+                        if(varyingsPtr)
+                        {
+                            Memory::alignedFree(varyingsPtr);
+                        }
+                        vertexBuffer[i].varyings = static_cast<float*>(Memory::alignedMalloc(varyingsAlignedSize));//varyingsBuffer.get() + i * varyingsAlignedSize / sizeof(float);
                     }
                 }
             }
 
+            void freeVertexVaringMemory()
+            {
+                
+            }
+
+            VertexResource VertexHolderInterpolate(VertexResource *v0, VertexResource *v1, float weight) 
+            {
+                VertexResource ret;
+                auto *vtf_ret = (float *) &ret.vertex;
+                auto *vtf_0 = (float *) &v0->vertex;
+                auto *vtf_1 = (float *) &v1->vertex;
+                for (int i = 0; i < sizeof(Vertex) / sizeof(float); i++)
+                {
+                    vtf_ret[i] = glm::mix(vtf_0[i], vtf_1[i], weight);
+                }
+
+                ret.position = glm::mix(v0->position, v1->position, weight);
+                ret.clip_mask = 0;
+                
+                if (varyingsAlignedSize > 0) 
+                {
+                    ret.varyings_append = std::shared_ptr<float>((float *) Memory::alignedMalloc(varyingsAlignedSize), [](const float *ptr) { Memory::alignedFree((void *) ptr); });
+                    ret.varyings = ret.varyings_append.get();
+                }
+                
+                vtf_0 = v0->varyings;
+                vtf_1 = v1->varyings;
+
+                for (int i = 0; i < varyingsAlignedSize / sizeof(float); i++)
+                {
+                    ret.varyings[i] = glm::mix(vtf_0[i], vtf_1[i], weight);
+                }
+
+                return ret;
+            }
 
             VertexBuffer vertexBuffer;
             FaceBuffer faceBuffer;
 
-            size_t varyingsCount = 0;
-            size_t varyingsAlignedSize = 0;
+            uint32_t varyingsCount = 0;
+            uint32_t varyingsAlignedSize = 0;
             std::shared_ptr<float> varyingsBuffer = nullptr;
         };
 
@@ -265,6 +345,8 @@ namespace SoftRenderer
         void processVertexShader();
 
         void processFrustumClip();
+
+        void VertexShaderImpl(VertexResource& vertex);
 
         void processPerspectiveDivide();
 
@@ -337,5 +419,6 @@ namespace SoftRenderer
         std::shared_ptr<Program> mProgram = nullptr;
 
         BS::thread_pool_light mThreadPool;
+
     };
 }

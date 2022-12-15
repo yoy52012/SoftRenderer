@@ -101,15 +101,15 @@ namespace SoftRenderer
 
             uploadVertexData(subMesh->vertices, subMesh->indices);
             processVertexShader();
-            //processFrustumClip();
+            processFrustumClip();
             processPerspectiveDivide();
             processViewportTransform();
-            processBackFaceCulling();
-            //processRasterization();
+            //processBackFaceCulling();
+            processRasterization();
             ProcessFaceWireframe();
         }
     }
-
+    
     void Graphics::clearColor(const glm::vec4& color)
     {
         mBackBuffer->clearColor(color);
@@ -491,6 +491,45 @@ namespace SoftRenderer
             }
     }
 
+    
+        enum FrustumClipMask {
+  POSITIVE_X = 1 << 0,
+  NEGATIVE_X = 1 << 1,
+  POSITIVE_Y = 1 << 2,
+  NEGATIVE_Y = 1 << 3,
+  POSITIVE_Z = 1 << 4,
+  NEGATIVE_Z = 1 << 5,
+};
+
+const int FrustumClipMaskArray[6] = {
+    FrustumClipMask::POSITIVE_X,
+    FrustumClipMask::NEGATIVE_X,
+    FrustumClipMask::POSITIVE_Y,
+    FrustumClipMask::NEGATIVE_Y,
+    FrustumClipMask::POSITIVE_Z,
+    FrustumClipMask::NEGATIVE_Z,
+};
+
+const glm::vec4 FrustumClipPlane[6] = {
+    {-1, 0, 0, 1},
+    {1, 0, 0, 1},
+    {0, -1, 0, 1},
+    {0, 1, 0, 1},
+    {0, 0, -1, 1},
+    {0, 0, 1, 1}
+};
+
+    int CountFrustumClipMask(glm::vec4 &clip_pos) {
+        int mask = 0;
+        if (clip_pos.w < clip_pos.x) mask |= FrustumClipMask::POSITIVE_X;
+        if (clip_pos.w < -clip_pos.x) mask |= FrustumClipMask::NEGATIVE_X;
+        if (clip_pos.w < clip_pos.y) mask |= FrustumClipMask::POSITIVE_Y;
+        if (clip_pos.w < -clip_pos.y) mask |= FrustumClipMask::NEGATIVE_Y;
+        if (clip_pos.w < clip_pos.z) mask |= FrustumClipMask::POSITIVE_Z;
+        if (clip_pos.w < -clip_pos.z) mask |= FrustumClipMask::NEGATIVE_Z;
+        return mask;
+    }
+
     void Graphics::uploadVertexData(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices)
     {
         mRenderContex.createVertexBuffer(vertices);
@@ -518,12 +557,133 @@ namespace SoftRenderer
             vertexShader->shaderMain();
 
             vertex.position = vertexShader->gl_Position;
+            vertex.clip_mask = CountFrustumClipMask(vertex.position);
         }
 
     }
 
+    void Graphics::VertexShaderImpl(VertexResource& vertex)
+    {
+        auto vertexShader = mProgram->vertexShader;
+
+        vertexShader->attributes = (BaseShaderAttributes*)&vertex.vertex;
+
+        if (vertex.varyings == nullptr)
+        {
+            vertexShader->varyings = nullptr;
+        }
+        else 
+        {
+            vertexShader->varyings = (BaseShaderVaryings*)vertex.varyings;
+        }
+
+        vertexShader->shaderMain();
+
+        vertex.position = vertexShader->gl_Position;
+        vertex.clip_mask = CountFrustumClipMask(vertex.position);
+    }
+
     void Graphics::processFrustumClip()
     {
+        // if (!frustum_clip) 
+        // {
+        //     return;
+        // }
+
+        auto& vertexBuffer = mRenderContex.vertexBuffer;
+        auto& faceBuffer   = mRenderContex.faceBuffer;
+
+        size_t face_cnt = faceBuffer.size();
+        for (int face_idx = 0; face_idx < face_cnt; face_idx++) 
+        {
+            auto &fh = faceBuffer[face_idx];
+            int idx0 = fh.indices[0];
+            int idx1 = fh.indices[1];
+            int idx2 = fh.indices[2];
+
+            int mask = vertexBuffer[idx0].clip_mask | vertexBuffer[idx1].clip_mask | vertexBuffer[idx2].clip_mask;
+            if (mask == 0) 
+            {
+                continue;
+            }
+
+            bool full_clip = false;
+            std::vector<int> indices_in;
+            std::vector<int> indices_out;
+
+            indices_in.push_back(idx0);
+            indices_in.push_back(idx1);
+            indices_in.push_back(idx2);
+
+            for (int plane_idx = 0; plane_idx < 6; plane_idx++) 
+            {
+                if (mask & FrustumClipMaskArray[plane_idx]) 
+                {
+                    if (indices_in.size() < 3) 
+                    {
+                        full_clip = true;
+                        break;
+                    }
+
+                    indices_out.clear();
+
+                    int idx_pre = indices_in[0];
+                    float d_pre = glm::dot(FrustumClipPlane[plane_idx], vertexBuffer[idx_pre].position);
+
+                    indices_in.push_back(idx_pre);
+
+                    for (int i = 1; i < indices_in.size(); i++) 
+                    {
+                        int idx = indices_in[i];
+                        float d = glm::dot(FrustumClipPlane[plane_idx], vertexBuffer[idx].position);
+
+                        if (d_pre >= 0) 
+                        {
+                            indices_out.push_back(idx_pre);
+                        }
+
+                        if (std::signbit(d_pre) != std::signbit(d)) 
+                        {
+                            float t = d < 0 ? d_pre / (d_pre - d) : -d_pre / (d - d_pre);
+                            auto vh = mRenderContex.VertexHolderInterpolate(&vertexBuffer[idx_pre], &vertexBuffer[idx], t);
+
+                            //VertexShaderImpl(vh);
+
+                            
+                            
+                            vertexBuffer.push_back(vh);
+                            
+                            indices_out.push_back((int) (vertexBuffer.size() - 1));
+                        }
+
+                        idx_pre = idx;
+                        d_pre = d;
+                    }
+
+                    std::swap(indices_in, indices_out);
+                }
+            }
+
+            if (full_clip || indices_in.empty()) 
+            {
+                fh.discard = true;
+                continue;
+            }
+
+            fh.indices[0] = indices_in[0];
+            fh.indices[1] = indices_in[1];
+            fh.indices[2] = indices_in[2];
+
+            for (int i = 3; i < indices_in.size(); i++) 
+            {
+                FaceResource new_fh{};
+                new_fh.indices[0] = indices_in[0];
+                new_fh.indices[1] = indices_in[i - 1];
+                new_fh.indices[2] = indices_in[i];
+                new_fh.discard = false;
+                faceBuffer.push_back(new_fh);
+            }
+        }
     }
 
     void Graphics::processPerspectiveDivide()
@@ -600,10 +760,6 @@ namespace SoftRenderer
 
                 auto &v0 = mRenderContex.vertexBuffer[idx0];
                 auto &v1 = mRenderContex.vertexBuffer[idx1];
-
-
-
-
 
                 drawLine(v0.position, v1.position, glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
             }
@@ -737,8 +893,8 @@ namespace SoftRenderer
 
         int32_t minX = std::max(std::min(A.x, std::min(B.x, C.x)), 0);
         int32_t minY = std::max(std::min(A.y, std::min(B.y, C.y)), 0);
-        int32_t maxX = std::min(std::max(A.x, std::max(B.x, C.x)), mWidth - 1);
-        int32_t maxY = std::min(std::max(A.y, std::max(B.y, C.y)), mHeight - 1);
+        int32_t maxX = std::min(std::max(A.x, std::max(B.x, C.x)), mWidth );
+        int32_t maxY = std::min(std::max(A.y, std::max(B.y, C.y)), mHeight );
 
         //I1 = Ay - By, I2 = By - Cy, I3 = Cy - Ay
         int32_t I01 = A.y - B.y;

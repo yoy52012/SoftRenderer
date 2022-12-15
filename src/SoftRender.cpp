@@ -119,8 +119,8 @@ void main()
         uniforms->uModelViewProjectMatrix = camera.getProjMatrix() * camera.getViewMatrix() * modelMat;
         uniforms->uInverseTransposeModelMatrix = glm::mat3(glm::transpose(glm::inverse(modelMat)));
         uniforms->uCameraPostion = glm::vec3(0);
-            
-        render.drawMesh1(model.get());
+
+        render.drawMesh1(box.get());
 
         render.swapBuffer();
 

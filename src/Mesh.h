@@ -80,6 +80,8 @@ namespace SoftRenderer
         std::vector<glm::vec4> colors;
 
         uint32_t flag = 0;
+
+        uint32_t bufferId = 0;
     };
 
     class Mesh

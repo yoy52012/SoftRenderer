@@ -319,6 +319,71 @@ namespace SoftRenderer
         submesh->setIndices(indices);
         submesh->build();
 
+        // Vertex v1;
+        // v1.position = glm::vec3(1.0f, 0.454172879f, 1.0f);
+        // v1.normal = glm::vec3(1.0f, 0.0f, 0.0f);
+        // v1.texcoord = glm::vec2(0.0f, 0.727086425);
+
+        // Vertex v2;
+        // v1.position = glm::vec3(1.0f, 1.0f, -0.545838356f);
+        // v1.normal = glm::vec3(1.0f, 0.0f, 0.0f);
+        // v1.texcoord = glm::vec2(0.772919178f, 1.0f);
+
+        // Vertex v3;
+        // v1.position = glm::vec3(0.850769639f, 1.0f, 1.0f);
+        // v1.normal = glm::vec3(0.0f, 1.0f, 0.0f);
+        // v1.texcoord = glm::vec2(0.925384820f, 0.0);
+
+        // Vertex v4;
+        // v1.position = glm::vec3(1.0f, 1.0f, -0.545838356f);
+        // v1.normal = glm::vec3(0.0f, 1.0f, 0.0f);
+        // v1.texcoord = glm::vec2(1.0f, 0.772919179);
+
+        // Vertex v5;
+        // v1.position = glm::vec3(0.882809758f, 0.882809758f, 1.0f);
+        // v1.normal = glm::vec3(0.0f, 0.0f, 1.0f);
+        // v1.texcoord = glm::vec2(0.941404879f, 0.941404879);
+
+        // Vertex v6;
+        // v1.position = glm::vec3(0.850769639f, 1.0f, 1.0f);
+        // v1.normal = glm::vec3(0.0f, 0.0f, 1.0f);
+        // v1.texcoord = glm::vec2(0.925384820f, 1.0);
+
+        // Vertex v7;
+        // v1.position = glm::vec3(1.0f, 0.454172850f, 1.0f);
+        // v1.normal = glm::vec3(0.0f, 0.0f, 1.0f);
+        // v1.texcoord = glm::vec2(1.0f, 0.727086425);
+
+        // Vertex v8;
+        // v1.position = glm::vec3(0.882809758f, 0.882809758f, 1.0f);
+        // v1.normal = glm::vec3(0.0f, 0.0f, 1.0f);
+        // v1.texcoord = glm::vec2(0.941404879f, 0.941404879);
+        
+        // submesh->vertices.push_back(v1);
+        // submesh->vertices.push_back(v2);
+        // submesh->vertices.push_back(v3);
+        // submesh->vertices.push_back(v4);
+        // submesh->vertices.push_back(v5);
+        // submesh->vertices.push_back(v6);
+        // submesh->vertices.push_back(v7);
+        // submesh->vertices.push_back(v8);
+
+        // submesh->indices.push_back(24);
+        // submesh->indices.push_back(1);
+        // submesh->indices.push_back(25);
+
+        // submesh->indices.push_back(10);
+        // submesh->indices.push_back(27);
+        // submesh->indices.push_back(9);
+
+        // submesh->indices.push_back(16);
+        // submesh->indices.push_back(28);
+        // submesh->indices.push_back(29);
+
+        // submesh->indices.push_back(18);
+        // submesh->indices.push_back(30);
+        // submesh->indices.push_back(31);
+
         std::shared_ptr<Mesh> mesh = std::make_shared<Mesh>();
         mesh->addSubMesh(submesh);
 
