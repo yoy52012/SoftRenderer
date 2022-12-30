@@ -492,22 +492,28 @@ namespace SoftRenderer
     }
 
     
-        enum FrustumClipMask {
-  POSITIVE_X = 1 << 0,
-  NEGATIVE_X = 1 << 1,
-  POSITIVE_Y = 1 << 2,
-  NEGATIVE_Y = 1 << 3,
-  POSITIVE_Z = 1 << 4,
-  NEGATIVE_Z = 1 << 5,
-};
+    enum FrustumClipMask 
+    {
+        POSITIVE_X = 1 << 0,
+        NEGATIVE_X = 1 << 1,
+        POSITIVE_Y = 1 << 2,
+        NEGATIVE_Y = 1 << 3,
+        POSITIVE_Z = 1 << 4,
+        NEGATIVE_Z = 1 << 5,
+        NEAR = 1 << 6,
+        FAR  = 1 << 7,  
+    };
 
-const int FrustumClipMaskArray[6] = {
+const int FrustumClipMaskArray[8] = 
+{
     FrustumClipMask::POSITIVE_X,
     FrustumClipMask::NEGATIVE_X,
     FrustumClipMask::POSITIVE_Y,
     FrustumClipMask::NEGATIVE_Y,
     FrustumClipMask::POSITIVE_Z,
     FrustumClipMask::NEGATIVE_Z,
+    FrustumClipMask::NEAR,
+    FrustumClipMask::FAR
 };
 
 const glm::vec4 FrustumClipPlane[6] = {
@@ -519,7 +525,8 @@ const glm::vec4 FrustumClipPlane[6] = {
     {0, 0, 1, 1}
 };
 
-    int CountFrustumClipMask(glm::vec4 &clip_pos) {
+    int CalculateFrustumClipMask(glm::vec4 &clip_pos, float near, float far) 
+    {
         int mask = 0;
         if (clip_pos.w < clip_pos.x) mask |= FrustumClipMask::POSITIVE_X;
         if (clip_pos.w < -clip_pos.x) mask |= FrustumClipMask::NEGATIVE_X;
@@ -527,6 +534,8 @@ const glm::vec4 FrustumClipPlane[6] = {
         if (clip_pos.w < -clip_pos.y) mask |= FrustumClipMask::NEGATIVE_Y;
         if (clip_pos.w < clip_pos.z) mask |= FrustumClipMask::POSITIVE_Z;
         if (clip_pos.w < -clip_pos.z) mask |= FrustumClipMask::NEGATIVE_Z;
+        if (clip_pos.w > far) mask |= FrustumClipMask::FAR;
+        if (clip_pos.w < near) mask |= FrustumClipMask::NEAR;
         return mask;
     }
 
@@ -557,30 +566,9 @@ const glm::vec4 FrustumClipPlane[6] = {
             vertexShader->shaderMain();
 
             vertex.position = vertexShader->gl_Position;
-            vertex.clip_mask = CountFrustumClipMask(vertex.position);
+            vertex.clip_mask = CalculateFrustumClipMask(vertex.position, mDepthRange.n, mDepthRange.f);
         }
 
-    }
-
-    void Graphics::VertexShaderImpl(VertexResource& vertex)
-    {
-        auto vertexShader = mProgram->vertexShader;
-
-        vertexShader->attributes = (BaseShaderAttributes*)&vertex.vertex;
-
-        if (vertex.varyings == nullptr)
-        {
-            vertexShader->varyings = nullptr;
-        }
-        else 
-        {
-            vertexShader->varyings = (BaseShaderVaryings*)vertex.varyings;
-        }
-
-        vertexShader->shaderMain();
-
-        vertex.position = vertexShader->gl_Position;
-        vertex.clip_mask = CountFrustumClipMask(vertex.position);
     }
 
     void Graphics::processFrustumClip()
@@ -593,13 +581,12 @@ const glm::vec4 FrustumClipPlane[6] = {
         auto& vertexBuffer = mRenderContex.vertexBuffer;
         auto& faceBuffer   = mRenderContex.faceBuffer;
 
-        size_t face_cnt = faceBuffer.size();
-        for (int face_idx = 0; face_idx < face_cnt; face_idx++) 
+        for (int32_t faceIndex = 0; faceIndex < faceBuffer.size(); faceIndex++) 
         {
-            auto &fh = faceBuffer[face_idx];
-            int idx0 = fh.indices[0];
-            int idx1 = fh.indices[1];
-            int idx2 = fh.indices[2];
+            auto& face = faceBuffer[faceIndex];
+            int32_t idx0 = face.indices[0];
+            int32_t idx1 = face.indices[1];
+            int32_t idx2 = face.indices[2];
 
             int mask = vertexBuffer[idx0].clip_mask | vertexBuffer[idx1].clip_mask | vertexBuffer[idx2].clip_mask;
             if (mask == 0) 
@@ -627,38 +614,64 @@ const glm::vec4 FrustumClipPlane[6] = {
 
                     indices_out.clear();
 
-                    int idx_pre = indices_in[0];
-                    float d_pre = glm::dot(FrustumClipPlane[plane_idx], vertexBuffer[idx_pre].position);
+                    //int idx_pre = indices_in[0];
+                    //float d_pre = glm::dot(FrustumClipPlane[plane_idx], vertexBuffer[idx_pre].position);
 
-                    indices_in.push_back(idx_pre);
+                    // indices_in.push_back(idx_pre);
 
-                    for (int i = 1; i < indices_in.size(); i++) 
+                    // for (int i = 1; i < indices_in.size(); i++) 
+                    // {
+                    //     int idx = indices_in[i];
+                    //     float d = glm::dot(FrustumClipPlane[plane_idx], vertexBuffer[idx].position);
+
+                    //     // if current vertices is inside
+                    //     if (d_pre >= 0) 
+                    //     {
+                    //         indices_out.push_back(idx_pre);
+                    //     }
+
+                    //     if (std::signbit(d_pre) != std::signbit(d)) 
+                    //     {
+                    //         // t = (w1 - y1)/((w1-y1)-(w2-y2))
+                    //         float t = d < 0 ? d_pre / (d_pre - d) : -d_pre / (d - d_pre);
+
+                    //         auto vh = mRenderContex.VertexHolderInterpolate(&vertexBuffer[idx_pre], &vertexBuffer[idx], t);
+                            
+                    //         vertexBuffer.push_back(vh);
+                            
+                    //         indices_out.push_back((int) (vertexBuffer.size() - 1));
+                    //     }
+
+                    //     idx_pre = idx;
+                    //     d_pre = d;
+                    // }
+
+                    uint32_t numVerts = indices_in.size();
+                    for(uint32_t i = 0; i < numVerts; i++)
                     {
-                        int idx = indices_in[i];
-                        float d = glm::dot(FrustumClipPlane[plane_idx], vertexBuffer[idx].position);
+                        int idx1 = indices_in[(i-1+numVerts) % numVerts];
+                        int idx2 = indices_in[i];
+                        
+                        float d1 = glm::dot(FrustumClipPlane[plane_idx], vertexBuffer[idx1].position);
+                        float d2 = glm::dot(FrustumClipPlane[plane_idx], vertexBuffer[idx2].position);
 
-                        if (d_pre >= 0) 
+                        if(d1 >= 0)
                         {
-                            indices_out.push_back(idx_pre);
+                            indices_out.push_back(idx1);
                         }
 
-                        if (std::signbit(d_pre) != std::signbit(d)) 
+                        if (std::signbit(d1) != std::signbit(d2)) 
                         {
-                            float t = d < 0 ? d_pre / (d_pre - d) : -d_pre / (d - d_pre);
-                            auto vh = mRenderContex.VertexHolderInterpolate(&vertexBuffer[idx_pre], &vertexBuffer[idx], t);
+                            float t = d2 < 0 ? d1 / (d1 - d2) : -d1 / (d2 - d1);
 
-                            //VertexShaderImpl(vh);
+                            auto vh = mRenderContex.VertexHolderInterpolate(&vertexBuffer[idx1], &vertexBuffer[idx2], t);
 
-                            
-                            
                             vertexBuffer.push_back(vh);
-                            
+
                             indices_out.push_back((int) (vertexBuffer.size() - 1));
                         }
-
-                        idx_pre = idx;
-                        d_pre = d;
                     }
+
 
                     std::swap(indices_in, indices_out);
                 }
@@ -666,22 +679,22 @@ const glm::vec4 FrustumClipPlane[6] = {
 
             if (full_clip || indices_in.empty()) 
             {
-                fh.discard = true;
+                face.discard = true;
                 continue;
             }
 
-            fh.indices[0] = indices_in[0];
-            fh.indices[1] = indices_in[1];
-            fh.indices[2] = indices_in[2];
+            face.indices[0] = indices_in[0];
+            face.indices[1] = indices_in[1];
+            face.indices[2] = indices_in[2];
 
-            for (int i = 3; i < indices_in.size(); i++) 
+            for (int32_t i = 3; i < indices_in.size(); i++) 
             {
-                FaceResource new_fh{};
-                new_fh.indices[0] = indices_in[0];
-                new_fh.indices[1] = indices_in[i - 1];
-                new_fh.indices[2] = indices_in[i];
-                new_fh.discard = false;
-                faceBuffer.push_back(new_fh);
+                FaceResource newFace;
+                newFace.indices[0] = indices_in[0];
+                newFace.indices[1] = indices_in[i - 1];
+                newFace.indices[2] = indices_in[i];
+                newFace.discard = false;
+                faceBuffer.push_back(newFace);
             }
         }
     }

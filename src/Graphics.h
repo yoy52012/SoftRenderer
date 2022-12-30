@@ -44,43 +44,6 @@ namespace SoftRenderer
         }
     };
 
-    using BufferId = uint32_t;
-
-    class Handle
-    {
-    public:
-        using HandleId = uint32_t;
-        static constexpr const HandleId nullid = HandleId{ std::numeric_limits<HandleId>::max() };
-
-        constexpr Handle() noexcept: object(nullid) {}
-
-        explicit Handle(HandleId id) noexcept : object(id) { }
-
-        // whether this Handle is initialized
-        explicit operator bool() const noexcept { return object != nullid; }
-
-        // clear the handle, this doesn't free associated resources
-        void clear() noexcept { object = nullid; }
-
-        // compare handles
-        bool operator==(const Handle& rhs) const noexcept { return object == rhs.object; }
-        bool operator!=(const Handle& rhs) const noexcept { return object != rhs.object; }
-        bool operator<(const Handle& rhs) const noexcept { return object < rhs.object; }
-        bool operator<=(const Handle& rhs) const noexcept { return object <= rhs.object; }
-        bool operator>(const Handle& rhs) const noexcept { return object > rhs.object; }
-        bool operator>=(const Handle& rhs) const noexcept { return object >= rhs.object; }
-
-        // get this handle's handleId
-        HandleId getId() const noexcept { return object; }
-
-    protected:
-        Handle(Handle const& rhs) noexcept = default;
-        Handle& operator=(Handle const& rhs) noexcept = default;
-
-    private:
-        HandleId object;
-    };
-
     class Graphics
     {
     public:
@@ -129,7 +92,7 @@ namespace SoftRenderer
 
             glm::vec4 position = glm::vec4(0);
 
-            std::shared_ptr<float> varyings_append = nullptr;
+            //std::shared_ptr<float> varyings_append = nullptr;
 
             uint32_t clip_mask = 0;
         };
@@ -253,6 +216,7 @@ namespace SoftRenderer
                         {
                             Memory::alignedFree(varyingsPtr);
                         }
+
                         vertexBuffer[i].varyings = static_cast<float*>(Memory::alignedMalloc(varyingsAlignedSize));//varyingsBuffer.get() + i * varyingsAlignedSize / sizeof(float);
                     }
                 }
@@ -260,7 +224,14 @@ namespace SoftRenderer
 
             void freeVertexVaringMemory()
             {
-                
+                for (int32_t i = 0; i < vertexBuffer.size(); i++)
+                {
+                    float* varyingsPtr = vertexBuffer[i].varyings;
+                    if(varyingsPtr)
+                    {
+                        Memory::alignedFree(varyingsPtr);
+                    }
+                }
             }
 
             VertexResource VertexHolderInterpolate(VertexResource *v0, VertexResource *v1, float weight) 
@@ -279,8 +250,8 @@ namespace SoftRenderer
                 
                 if (varyingsAlignedSize > 0) 
                 {
-                    ret.varyings_append = std::shared_ptr<float>((float *) Memory::alignedMalloc(varyingsAlignedSize), [](const float *ptr) { Memory::alignedFree((void *) ptr); });
-                    ret.varyings = ret.varyings_append.get();
+                    //ret.varyings_append = std::shared_ptr<float>((float *) Memory::alignedMalloc(varyingsAlignedSize), [](const float *ptr) { Memory::alignedFree((void *) ptr); });
+                    ret.varyings = static_cast<float*>(Memory::alignedMalloc(varyingsAlignedSize));//ret.varyings_append.get();
                 }
                 
                 vtf_0 = v0->varyings;
@@ -345,8 +316,6 @@ namespace SoftRenderer
         void processVertexShader();
 
         void processFrustumClip();
-
-        void VertexShaderImpl(VertexResource& vertex);
 
         void processPerspectiveDivide();
 
