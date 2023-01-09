@@ -9,6 +9,28 @@
 namespace SoftRenderer
 {
 
+    enum FrustumClipMask 
+    {
+        POSITIVE_X = 1 << 0,
+        NEGATIVE_X = 1 << 1,
+        POSITIVE_Y = 1 << 2,
+        NEGATIVE_Y = 1 << 3,
+        POSITIVE_Z = 1 << 4,
+        NEGATIVE_Z = 1 << 5,
+        NEAR = 1 << 6,
+        FAR  = 1 << 7,  
+    };
+
+    const uint32_t frustumClipMaskArray[6] = 
+    {
+        FrustumClipMask::POSITIVE_X,
+        FrustumClipMask::NEGATIVE_X,
+        FrustumClipMask::POSITIVE_Y,
+        FrustumClipMask::NEGATIVE_Y,
+        FrustumClipMask::POSITIVE_Z,
+        FrustumClipMask::NEGATIVE_Z
+    };
+
     void Graphics::init(int width, int height)
     {
         mWidth = width;
@@ -28,13 +50,14 @@ namespace SoftRenderer
         mDepthRange.n = 0.1f;
         mDepthRange.f = 100.f;
 
-
-
-
-
         //Texture2D::Ptr albedo = std::make_shared<Texture2D>();
         //albedo->initFromImage(image);
         //mShader->mUniforms.albedo = albedo;
+    }
+
+    void Graphics::setViewport(int32_t x, int32_t y, int32_t width, int32_t height)
+    {
+
     }
 
     void Graphics::clear(float r, float g, float b, float a)
@@ -492,52 +515,7 @@ namespace SoftRenderer
     }
 
     
-    enum FrustumClipMask 
-    {
-        POSITIVE_X = 1 << 0,
-        NEGATIVE_X = 1 << 1,
-        POSITIVE_Y = 1 << 2,
-        NEGATIVE_Y = 1 << 3,
-        POSITIVE_Z = 1 << 4,
-        NEGATIVE_Z = 1 << 5,
-        NEAR = 1 << 6,
-        FAR  = 1 << 7,  
-    };
 
-const int FrustumClipMaskArray[8] = 
-{
-    FrustumClipMask::POSITIVE_X,
-    FrustumClipMask::NEGATIVE_X,
-    FrustumClipMask::POSITIVE_Y,
-    FrustumClipMask::NEGATIVE_Y,
-    FrustumClipMask::POSITIVE_Z,
-    FrustumClipMask::NEGATIVE_Z,
-    FrustumClipMask::NEAR,
-    FrustumClipMask::FAR
-};
-
-const glm::vec4 FrustumClipPlane[6] = {
-    {-1, 0, 0, 1},
-    {1, 0, 0, 1},
-    {0, -1, 0, 1},
-    {0, 1, 0, 1},
-    {0, 0, -1, 1},
-    {0, 0, 1, 1}
-};
-
-    int CalculateFrustumClipMask(glm::vec4 &clip_pos, float near, float far) 
-    {
-        int mask = 0;
-        if (clip_pos.w < clip_pos.x) mask |= FrustumClipMask::POSITIVE_X;
-        if (clip_pos.w < -clip_pos.x) mask |= FrustumClipMask::NEGATIVE_X;
-        if (clip_pos.w < clip_pos.y) mask |= FrustumClipMask::POSITIVE_Y;
-        if (clip_pos.w < -clip_pos.y) mask |= FrustumClipMask::NEGATIVE_Y;
-        if (clip_pos.w < clip_pos.z) mask |= FrustumClipMask::POSITIVE_Z;
-        if (clip_pos.w < -clip_pos.z) mask |= FrustumClipMask::NEGATIVE_Z;
-        if (clip_pos.w > far) mask |= FrustumClipMask::FAR;
-        if (clip_pos.w < near) mask |= FrustumClipMask::NEAR;
-        return mask;
-    }
 
     void Graphics::uploadVertexData(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices)
     {
@@ -566,20 +544,45 @@ const glm::vec4 FrustumClipPlane[6] = {
             vertexShader->shaderMain();
 
             vertex.position = vertexShader->gl_Position;
-            vertex.clip_mask = CalculateFrustumClipMask(vertex.position, mDepthRange.n, mDepthRange.f);
         }
 
     }
 
+    //Clipping in the homogeneous clipping space
+    //https://fabiensanglard.net/polygon_codec/clippingdocument/Clipping.pdf
     void Graphics::processFrustumClip()
     {
-        // if (!frustum_clip) 
-        // {
-        //     return;
-        // }
+        if (!mEnableFrustumClip) 
+        {
+            return;
+        }
 
         auto& vertexBuffer = mRenderContex.vertexBuffer;
         auto& faceBuffer   = mRenderContex.faceBuffer;
+
+        auto calculateFrustumClipMask = [](glm::vec4 &clip_pos, float near, float far) -> uint32_t
+        {
+            uint32_t mask = 0;
+            if (clip_pos.w < clip_pos.x) mask |= FrustumClipMask::POSITIVE_X;
+            if (clip_pos.w < -clip_pos.x) mask |= FrustumClipMask::NEGATIVE_X;
+            if (clip_pos.w < clip_pos.y) mask |= FrustumClipMask::POSITIVE_Y;
+            if (clip_pos.w < -clip_pos.y) mask |= FrustumClipMask::NEGATIVE_Y;
+            if (clip_pos.w < clip_pos.z) mask |= FrustumClipMask::POSITIVE_Z;
+            if (clip_pos.w < -clip_pos.z) mask |= FrustumClipMask::NEGATIVE_Z;
+            if (clip_pos.w > far) mask |= FrustumClipMask::FAR;
+            if (clip_pos.w < near) mask |= FrustumClipMask::NEAR;
+            return mask;
+        };
+
+        const glm::vec4 frustumClipPlane[6] = 
+        {
+            {-1, 0, 0, 1},
+            {1, 0, 0, 1},
+            {0, -1, 0, 1},
+            {0, 1, 0, 1},
+            {0, 0, -1, 1},
+            {0, 0, 1, 1}
+        };
 
         for (int32_t faceIndex = 0; faceIndex < faceBuffer.size(); faceIndex++) 
         {
@@ -588,113 +591,121 @@ const glm::vec4 FrustumClipPlane[6] = {
             int32_t idx1 = face.indices[1];
             int32_t idx2 = face.indices[2];
 
-            int mask = vertexBuffer[idx0].clip_mask | vertexBuffer[idx1].clip_mask | vertexBuffer[idx2].clip_mask;
-            if (mask == 0) 
+            auto vertex0 = vertexBuffer[idx0];
+            auto vertex1 = vertexBuffer[idx1];
+            auto vertex2 = vertexBuffer[idx2];
+
+            const uint32_t clipMask0 = calculateFrustumClipMask(vertex0.position, mDepthRange.n, mDepthRange.f);
+            const uint32_t clipMask1 = calculateFrustumClipMask(vertex1.position, mDepthRange.n, mDepthRange.f);
+            const uint32_t clipMask2 = calculateFrustumClipMask(vertex2.position, mDepthRange.n, mDepthRange.f);
+
+            uint32_t clipMask = clipMask0 | clipMask1 | clipMask2;
+
+            // if the triangle is completely inside the clip plane
+            if (clipMask == 0) 
             {
                 continue;
             }
 
-            bool full_clip = false;
-            std::vector<int> indices_in;
-            std::vector<int> indices_out;
+            bool isfullClip = false;
+            std::vector<int32_t> indicesIn;
+            std::vector<int32_t> indicesOut;
 
-            indices_in.push_back(idx0);
-            indices_in.push_back(idx1);
-            indices_in.push_back(idx2);
+            indicesIn.push_back(idx0);
+            indicesIn.push_back(idx1);
+            indicesIn.push_back(idx2);
 
-            for (int plane_idx = 0; plane_idx < 6; plane_idx++) 
+            for (uint32_t clipPlaneIndex = 0; clipPlaneIndex < 6; clipPlaneIndex++) 
             {
-                if (mask & FrustumClipMaskArray[plane_idx]) 
+                if (clipMask & frustumClipMaskArray[clipPlaneIndex]) 
                 {
-                    if (indices_in.size() < 3) 
+                    if (indicesIn.size() < 3) 
                     {
-                        full_clip = true;
+                        isfullClip = true;
                         break;
                     }
 
-                    indices_out.clear();
+                    indicesOut.clear();
 
-                    //int idx_pre = indices_in[0];
-                    //float d_pre = glm::dot(FrustumClipPlane[plane_idx], vertexBuffer[idx_pre].position);
+                // int idx_pre = indicesIn[0];
+                // float d_pre = glm::dot(frustumClipPlane[clipPlaneIndex], vertexBuffer[idx_pre].position);
 
-                    // indices_in.push_back(idx_pre);
+                // indicesIn.push_back(idx_pre);
 
-                    // for (int i = 1; i < indices_in.size(); i++) 
-                    // {
-                    //     int idx = indices_in[i];
-                    //     float d = glm::dot(FrustumClipPlane[plane_idx], vertexBuffer[idx].position);
+                // for (int i = 1; i < indicesIn.size(); i++) {
+                // int idx = indicesIn[i];
+                // float d = glm::dot(frustumClipPlane[clipPlaneIndex], vertexBuffer[idx].position);
 
-                    //     // if current vertices is inside
-                    //     if (d_pre >= 0) 
-                    //     {
-                    //         indices_out.push_back(idx_pre);
-                    //     }
+                // if (d_pre >= 0) {
+                //     indicesOut.push_back(idx_pre);
+                // }
 
-                    //     if (std::signbit(d_pre) != std::signbit(d)) 
-                    //     {
-                    //         // t = (w1 - y1)/((w1-y1)-(w2-y2))
-                    //         float t = d < 0 ? d_pre / (d_pre - d) : -d_pre / (d - d_pre);
+                // if (std::signbit(d_pre) != std::signbit(d)) 
+                // {
+                //     float t = d < 0 ? d_pre / (d_pre - d) : -d_pre / (d - d_pre);
 
-                    //         auto vh = mRenderContex.VertexHolderInterpolate(&vertexBuffer[idx_pre], &vertexBuffer[idx], t);
-                            
-                    //         vertexBuffer.push_back(vh);
-                            
-                    //         indices_out.push_back((int) (vertexBuffer.size() - 1));
-                    //     }
+                //     auto newVertex = mRenderContex.VertexHolderInterpolate(&vertexBuffer[idx_pre], &vertexBuffer[idx], t);
 
-                    //     idx_pre = idx;
-                    //     d_pre = d;
-                    // }
+                //     vertexBuffer.emplace_back(newVertex);
+                    
+                //     indicesOut.push_back((int) (vertexBuffer.size() - 1));
+                // }
 
-                    uint32_t numVerts = indices_in.size();
-                    for(uint32_t i = 0; i < numVerts; i++)
+                //     idx_pre = idx;
+                //     d_pre = d;
+                // }
+
+
+                    const size_t numIndices = indicesIn.size();
+                    for(size_t i = 0; i < numIndices; i++)
                     {
-                        int idx1 = indices_in[(i-1+numVerts) % numVerts];
-                        int idx2 = indices_in[i];
+                        const int32_t index1 = indicesIn[i];
+                        const int32_t index2 = indicesIn[(i+1) < numIndices  ? i+1 : 0];
                         
-                        float d1 = glm::dot(FrustumClipPlane[plane_idx], vertexBuffer[idx1].position);
-                        float d2 = glm::dot(FrustumClipPlane[plane_idx], vertexBuffer[idx2].position);
+                        const float d1 = glm::dot(frustumClipPlane[clipPlaneIndex], vertexBuffer[index1].position);
+                        const float d2 = glm::dot(frustumClipPlane[clipPlaneIndex], vertexBuffer[index2].position);
 
+                        // if current vertex is inside
                         if(d1 >= 0)
                         {
-                            indices_out.push_back(idx1);
+                            indicesOut.push_back(index1);
                         }
 
+                        // if one vertex is inside and another one is outside
                         if (std::signbit(d1) != std::signbit(d2)) 
                         {
                             float t = d2 < 0 ? d1 / (d1 - d2) : -d1 / (d2 - d1);
 
-                            auto vh = mRenderContex.VertexHolderInterpolate(&vertexBuffer[idx1], &vertexBuffer[idx2], t);
+                            auto newVertex = mRenderContex.VertexHolderInterpolate(&vertexBuffer[index1], &vertexBuffer[index2], t);
 
-                            vertexBuffer.push_back(vh);
+                            vertexBuffer.push_back(newVertex);
 
-                            indices_out.push_back((int) (vertexBuffer.size() - 1));
+                            indicesOut.push_back((int) (vertexBuffer.size() - 1));
                         }
                     }
-
-
-                    std::swap(indices_in, indices_out);
+                    std::swap(indicesIn, indicesOut);
                 }
             }
 
-            if (full_clip || indices_in.empty()) 
+            if (isfullClip || indicesIn.empty())  
             {
                 face.discard = true;
                 continue;
             }
 
-            face.indices[0] = indices_in[0];
-            face.indices[1] = indices_in[1];
-            face.indices[2] = indices_in[2];
+            face.indices[0] = indicesIn[0];
+            face.indices[1] = indicesIn[1];
+            face.indices[2] = indicesIn[2];
 
-            for (int32_t i = 3; i < indices_in.size(); i++) 
+            // create new face
+            for (size_t i = 3; i < indicesIn.size(); i++) 
             {
                 FaceResource newFace;
-                newFace.indices[0] = indices_in[0];
-                newFace.indices[1] = indices_in[i - 1];
-                newFace.indices[2] = indices_in[i];
+                newFace.indices[0] = indicesIn[0];
+                newFace.indices[1] = indicesIn[i - 1];
+                newFace.indices[2] = indicesIn[i];
                 newFace.discard = false;
-                faceBuffer.push_back(newFace);
+                faceBuffer.emplace_back(newFace);
             }
         }
     }

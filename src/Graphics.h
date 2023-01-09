@@ -276,6 +276,8 @@ namespace SoftRenderer
     public:
         void init(int width, int height);
 
+        void setViewport(int32_t x, int32_t y, int32_t width, int32_t height);
+
         void clear(float r, float g, float b, float a);
 
         void drawTriangle(const Vertex& v0, const Vertex& v1, const Vertex& v2);
@@ -382,6 +384,7 @@ namespace SoftRenderer
         bool mEnableDepthMask = true;
 
         bool mEnableBackfaceCull = true;
+        bool mEnableFrustumClip = true;
 
         RenderContex mRenderContex;
 
