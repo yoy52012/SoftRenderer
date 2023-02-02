@@ -98,23 +98,47 @@ namespace SoftRenderer
 
     };
 
+    #define CLONE_VERTEX_SHADER(T) \
+    std::shared_ptr<BaseVertexShader> clone() override \
+    { \
+        auto ret = std::make_shared<T>(); \
+        ret->uniforms = uniforms; \
+        ret->attributes = attributes; \
+        return ret; \
+    } \
+
+    #define CLONE_FRAGMENT_SHADER(T) \
+    std::shared_ptr<BaseFragmentShader> clone() override \
+    { \
+        auto ret = std::make_shared<T>(); \
+        ret->uniforms = uniforms; \
+        return ret; \
+    } \
 
     struct BaseShaderAttributes
     {
-        glm::vec3 aPosition;
-        glm::vec2 aTextureCoord;
-        glm::vec3 aNormal;
-        glm::vec3 aTangent;
+        glm::vec3 position;
+        glm::vec2 textureCoord;
+        glm::vec3 normal;
+        glm::vec3 tangent;
     };
 
     struct BaseShaderUniforms
     {
-        glm::mat4 uModelMatrix;
-        glm::mat4 uModelViewProjectMatrix;
-        glm::mat4 uInverseTransposeModelMatrix;
+        BaseShaderUniforms() = default;
+        virtual ~BaseShaderUniforms() = default;
 
-        glm::vec3 uLightPosition;
-        glm::vec3 uCameraPostion;
+        glm::mat4 modelMatrix;
+        glm::mat4 modelViewProjectMatrix;
+        glm::mat3 inverseTransposeModelMatrix;
+
+        glm::vec3 lightPosition;
+        glm::vec3 lightColor;
+        float lightIntensity = 1.0f;
+        float lightDistance  = 0.0f;
+        float lightDecay = 2.0f;
+
+        glm::vec3 cameraPostion;
 
         Sampler2D uAlbedoMap;
     };
@@ -129,8 +153,6 @@ namespace SoftRenderer
     {
     public:
         virtual void shaderMain() = 0;
- 
-        virtual size_t getVaringsCount() = 0;
     };
 
     class BaseVertexShader : BaseShader
@@ -150,17 +172,20 @@ namespace SoftRenderer
             auto* u = (BaseShaderUniforms*)uniforms;
             auto* v = (BaseShaderVaryings*)varyings;
 
-            glm::vec4 position = glm::vec4(a->aPosition, 1.0f);
+            glm::vec4 position = glm::vec4(a->position, 1.0f);
 
-            gl_Position = u->uModelViewProjectMatrix * position;
+            gl_Position = u->modelViewProjectMatrix * position;
 
-            varyings->vNormal = u->uModelMatrix * glm::vec4(a->aNormal, 1.0f);
-            varyings->vTexCoord = a->aTextureCoord;
+            varyings->vNormal = u->modelMatrix * glm::vec4(a->normal, 1.0f);
+            varyings->vTexCoord = a->textureCoord;
         }
 
-        size_t getVaringsCount() override
+        virtual std::shared_ptr<BaseVertexShader> clone() 
         {
-            return sizeof(BaseShaderVaryings) / sizeof(float);
+            auto ret = std::make_shared<BaseVertexShader>();
+            ret->uniforms = uniforms;
+            ret->attributes = attributes;
+            return ret;
         }
 
     };
@@ -184,7 +209,7 @@ namespace SoftRenderer
 
         float LinearizeDepth(float depth)
         {
-            float n = 0.01;
+            float n = 0.1;
             float f = 100.0;
             float z = (depth * 2.0 - 1.0); // Back to NDC
             return (2.0 * n * f) / (f + n - z * (f - n));
@@ -197,17 +222,19 @@ namespace SoftRenderer
             auto* v = (BaseShaderVaryings*)varyings;
 
             gl_FragDepth = gl_FragCoord.z;
-            float depth = LinearizeDepth(gl_FragCoord.z) / 100.0f;
-            //gl_FragColor = glm::vec4(glm::vec3(gl_FragDepth), 1.0f);
+            float depth = LinearizeDepth(gl_FragCoord.z)/100.0f;
+            gl_FragColor = glm::vec4(glm::vec3(depth), 1.0f);
 
             glm::vec4 color = u->uAlbedoMap.texture2D(v->vTexCoord);
 
-            gl_FragColor = color;
+            //gl_FragColor = color;
         }
 
-        size_t getVaringsCount() override
+        virtual std::shared_ptr<BaseFragmentShader> clone() 
         {
-            return sizeof(BaseShaderVaryings) / sizeof(float);
+            auto ret = std::make_shared<BaseFragmentShader>();
+            ret->uniforms = uniforms;
+            return ret;
         }
 
     };
@@ -218,6 +245,13 @@ namespace SoftRenderer
         std::shared_ptr<BaseShaderUniforms> uniforms;
         std::shared_ptr<BaseVertexShader> vertexShader;
         std::shared_ptr<BaseFragmentShader> fragmentShader;
+
+        void attach(std::shared_ptr<BaseVertexShader> inVertexShader, std::shared_ptr<BaseFragmentShader> inFragmentShader, std::shared_ptr<BaseShaderUniforms> inUniforms)
+        {
+            vertexShader = inVertexShader;
+            fragmentShader = inFragmentShader;
+            uniforms = inUniforms;
+        }
     
         bool link()
         {
@@ -232,12 +266,18 @@ namespace SoftRenderer
                 std::cerr << "Program link error : Fragment shade is null." << std::endl;
                 return false;
             }
-                
+            
             vertexShader->uniforms = uniforms.get();
             fragmentShader->uniforms = uniforms.get();
-            varyingsCount = vertexShader->getVaringsCount();
+            varyingsCount = getVaringsCount();
 
             return true;
+        }
+
+    private:
+        virtual size_t getVaringsCount()
+        {
+            return sizeof(BaseShaderVaryings) / sizeof(float);
         }
 
     };

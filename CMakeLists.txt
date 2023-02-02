@@ -64,6 +64,9 @@ file(GLOB SOFTRENDERER_SRC
         ${CMAKE_CURRENT_SOURCE_DIR}/src/InputManager.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/SceneLoader.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/SceneNode.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/Material.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/ShaderManagement.cpp
+
         )
 
 

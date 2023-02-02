@@ -40,15 +40,11 @@ namespace SoftRenderer
         mFrontBuffer = std::make_shared<FrameBuffer>(width, height);
         mBackBuffer = std::make_shared<FrameBuffer>(width, height);
 
-        // set viewport
-        mViewport.x = 0;
-        mViewport.y = 0;
-        mViewport.width  = (float)width;
-        mViewport.height = (float)height;
+
 
         // set depth range
-        mDepthRange.n = 0.1f;
-        mDepthRange.f = 100.f;
+        mDepthRange.n = 0.01f;
+        mDepthRange.f = 100.0f;
 
         //Texture2D::Ptr albedo = std::make_shared<Texture2D>();
         //albedo->initFromImage(image);
@@ -57,7 +53,11 @@ namespace SoftRenderer
 
     void Graphics::setViewport(int32_t x, int32_t y, int32_t width, int32_t height)
     {
-
+        // set viewport
+        mViewport.x = 0;
+        mViewport.y = 0;
+        mViewport.width  = (float)width;
+        mViewport.height = (float)height;
     }
 
     void Graphics::clear(float r, float g, float b, float a)
@@ -124,12 +124,12 @@ namespace SoftRenderer
 
             uploadVertexData(subMesh->vertices, subMesh->indices);
             processVertexShader();
-            processFrustumClip();
+            //processFrustumClip();
             processPerspectiveDivide();
             processViewportTransform();
-            //processBackFaceCulling();
+            processBackFaceCulling();
             processRasterization();
-            ProcessFaceWireframe();
+            //ProcessFaceWireframe();
         }
     }
     
@@ -215,6 +215,7 @@ namespace SoftRenderer
         auto sum = mDepthRange.f + mDepthRange.n;
         auto diff = mDepthRange.f - mDepthRange.n;
         pos.z = 0.5f * (sum - diff * pos.z);
+        //pos.z = 0.5f * (sum + diff * pos.z);
     }
 
     void Graphics::perspectiveCorrectInterpolation(FragmentQuad& quad)
@@ -569,8 +570,8 @@ namespace SoftRenderer
             if (clip_pos.w < -clip_pos.y) mask |= FrustumClipMask::NEGATIVE_Y;
             if (clip_pos.w < clip_pos.z) mask |= FrustumClipMask::POSITIVE_Z;
             if (clip_pos.w < -clip_pos.z) mask |= FrustumClipMask::NEGATIVE_Z;
-            if (clip_pos.w > far) mask |= FrustumClipMask::FAR;
-            if (clip_pos.w < near) mask |= FrustumClipMask::NEAR;
+            //if (clip_pos.w > far) mask |= FrustumClipMask::FAR;
+            //if (clip_pos.w < near) mask |= FrustumClipMask::NEAR;
             return mask;
         };
 
@@ -963,8 +964,9 @@ namespace SoftRenderer
             {
                 mThreadPool.push_task([&, block_size, blockX, blockY]
                 {
+                    //TODO too slow here
                     FragmentQuad fragementQuad(mRenderContex.varyingsAlignedSize);
-
+                    fragementQuad.frag_shader = mProgram->fragmentShader->clone();
                     fragementQuad.front_facing = face.frontFacing;
 
                     for (int32_t i = 0; i < 3; i++)
@@ -991,7 +993,6 @@ namespace SoftRenderer
 
                     for (int32_t y = blockStartY; y < blockStartY + block_size && y <= maxY; y += 2)
                     {
-                        
                         int32_t Dx1 = Dy1 + block_size * blockX * I01;
                         int32_t Dx2 = Dy2 + block_size * blockX * I02;
                         int32_t Dx3 = Dy3 + block_size * blockX * I03;
@@ -999,8 +1000,6 @@ namespace SoftRenderer
                         for (int32_t x = blockStartX; x < blockStartX + block_size && x <= maxX; x += 2)
                         {
                             fragementQuad.init(x, y);
-
-                            fragementQuad.frag_shader.uniforms = mProgram->fragmentShader->uniforms;
 
                             bool inside0 = isSamplingInside(x, y, Dx1, Dx2, Dx3, maxX, maxY);
                             bool inside1 = isSamplingInside(x + 1, y, Dx1 + I01, Dx2 + I02, Dx3 + I03, maxX, maxY);
@@ -1120,18 +1119,18 @@ namespace SoftRenderer
             uint32_t x = (uint32_t)pos.x;
             uint32_t y = (uint32_t)pos.y;
 
-            BaseFragmentShader& fragmentShader = fragementQuad.frag_shader;
-            fragmentShader.varyings = (BaseShaderVaryings*)pixel.interpolatedVaryings;
-            fragmentShader.gl_FragCoord = glm::vec4(pos.x, pos.y, pos.z, 1.0f / pos.w);
+            //BaseFragmentShader& fragmentShader = fragementQuad.frag_shader;
+            fragementQuad.frag_shader->varyings = (BaseShaderVaryings*)pixel.interpolatedVaryings;
+            fragementQuad.frag_shader->gl_FragCoord = glm::vec4(pos.x, pos.y, pos.z, 1.0f / pos.w);
 
             // pixel shading
-            fragmentShader.shaderMain();
+            fragementQuad.frag_shader->shaderMain();
 
             // pixel color
-            glm::vec4 color = glm::clamp(fragmentShader.gl_FragColor, 0.0f, 1.0f);
+            glm::vec4 color = glm::clamp(fragementQuad.frag_shader->gl_FragColor, 0.0f, 1.0f);
 
             // pixel depth
-            float depth = fragmentShader.gl_FragDepth;
+            float depth = fragementQuad.frag_shader->gl_FragDepth;
 
             if (depthTest(x, y, depth))
             {
@@ -1254,12 +1253,12 @@ namespace SoftRenderer
         mProgram = program;
     }
 
-    void Graphics::setDepthTestEnable(bool enable)
+    void Graphics::setDepthTest(bool enable)
     {
         mEnableDepthTest = enable;
     }
 
-    void Graphics::setDepthWriteMask(bool enable)
+    void Graphics::setDepthWrite(bool enable)
     {
         mEnableDepthMask = enable;
     }

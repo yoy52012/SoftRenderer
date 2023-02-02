@@ -15,6 +15,8 @@
 #include "Texture.h"
 #include "OrbitControls.h"
 #include "SceneLoader.h"
+#include "ShaderManagement.h"
+#include "Material.h"
 
 using namespace SoftRenderer;
 
@@ -26,49 +28,30 @@ int64_t m_fpsTimeRecorder = 0;
 int64_t m_fpsCounter = 0;
 unsigned int m_fps = 0;
 
-
 void main()
 {
+    ShaderManager::instance().init();
+    BlinnPhongMaterial material;
+    material.setShaderProgram(ShaderManager::instance().getShaderProgram("BlinnPhong"));
+
     Window* window = Window::create("hello", 500, 500);
 
     window->setWindowTitle("SoftRenderer");
 
-    glm::vec3 position(0.0f, 0.0f, -5.0f);
-    glm::vec3 target(0.0f, 0.0f, 0.0f);
-    Camera camera(60.0f, (float)500 / (float)500, 0.01f, 100.0f);
+    glm::vec3 position(0.0f, 0.0f, 3.0f);
+    glm::vec3 target(0.0f, 1.0f, 0.0f);
+    Camera camera(60.0f, (float)500 / (float)500, 0.1f, 100.0f);
     camera.lookAt(position, target);
 
     OrbitControllers orbitControllers(camera, window);
 
-    // Vertex v1, v2, v3;
-    // v1.position = glm::vec3(-0.5f, -0.5f, 0.0f);
-    // v2.position = glm::vec3(0.5f, 0.5f, 0.0f);
-    // v3.position = glm::vec3(-0.5f, 0.5f, 0.0f);
-
-    // v1.color = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
-    // v2.color = glm::vec4(0.0f, 1.0f, 0.0f, 1.0f);
-    // v3.color = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
-
-    // Vertex v4, v5, v6;
-    // v4.position = glm::vec3(-0.5f, -0.5f, 0.0f);
-    // v5.position = glm::vec3(0.5f, -0.5f, 0.0f);
-    // v6.position = glm::vec3(0.5f, 0.5f, 0.0f);
-
-    // v4.color = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
-    // v5.color = glm::vec4(0.0f, 1.0f, 0.0f, 1.0f);
-    // v6.color = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
-
-    //Mesh mesh;
-    //mesh.addTriangle(v1, v2, v3);
-    //mesh.addTriangle(v4, v5, v6);
-
     std::shared_ptr<Mesh> plane = Mesh::createPlane(2, 2, 1, 1);
-    std::shared_ptr<Mesh> box = Mesh::createBox(2, 2, 2, 1, 1, 1);
+    std::shared_ptr<Mesh> box = Mesh::createBox(1, 1, 1, 1, 1, 1);
     std::shared_ptr<Mesh> sphere = Mesh::createSphere(1.0f, 0.0f, 2.0f * Math::PI, 0.0f, Math::PI);
     std::shared_ptr<Mesh> torusKnot = Mesh::createTorusKnot(10, 3, 64, 8, 2, 3);
 
     std::shared_ptr<Mesh> model = std::make_shared<Mesh>();
-    SceneLoader::instance().loadModel("E:/OpenProject/SoftGLRender/assets/Robot/scene.gltf", model);
+    SceneLoader::instance().loadModel("E:/OpenProject/SoftGLRender/assets/DamagedHelmet/DamagedHelmet.gltf", model);
 
 
     glm::mat4 modelMat = glm::mat4(1.0f);
@@ -77,50 +60,79 @@ void main()
 
     float count = 0.0f;
 
-    Graphics render;
+    Graphics& render = Graphics::instance();
     render.init(500, 500);
 
-    std::string a = "Cube_BaseColor.png";
+    std::string a = "Default_albedo.jpg";
     Image::Ptr image = Image::create(IMAGE_DIR + a);
 
     auto texture = std::make_shared<Texture>();
     texture->initFromImage(image);
 
-    std::shared_ptr<Program> program = std::make_shared<Program>();
+    material.setDiffuseColor(glm::vec3(1.0f, 1.0f, 1.0f));
+    material.setSpecularColor(glm::vec3(1.0f, 1.0f, 1.0f));
+    material.setSpecularShininess(30.0f);
+    material.setSpecularStrength(1.0f);
+    material.setDiffuseTexture(texture);
 
-    std::shared_ptr<BaseVertexShader> vertexShader = std::make_shared<BaseVertexShader>();
-    std::shared_ptr<BaseFragmentShader> fragmentShader = std::make_shared<BaseFragmentShader>();
+    //std::shared_ptr<Program> program = std::make_shared<Program>();
 
-    std::shared_ptr<BaseShaderUniforms> uniforms = std::make_shared<BaseShaderUniforms>();
+    //std::shared_ptr<BaseVertexShader> vertexShader = std::make_shared<BaseVertexShader>();
+    //std::shared_ptr<BaseFragmentShader> fragmentShader = std::make_shared<BaseFragmentShader>();
 
-    uniforms->uAlbedoMap.bindTexture(texture.get());
+    //std::shared_ptr<BaseShaderUniforms> uniforms = std::make_shared<BaseShaderUniforms>();
 
-    program->vertexShader = vertexShader;
-    program->fragmentShader = fragmentShader;
+    //uniforms->uAlbedoMap.bindTexture(texture.get());
 
-    program->uniforms = uniforms;
+    //program->vertexShader = vertexShader;
+    //program->fragmentShader = fragmentShader;
 
-    program->link();
+    //program->uniforms = uniforms;
 
-    render.useProgram(program);
+    //program->link();
 
-    modelMat = glm::translate(modelMat, glm::vec3(0.0f, 0.0f, 0.0f));
+    //render.useProgram(program);
+
+    auto light_position_angle = 0.0f;
+
 
     while (!window->shouldClose())
     {
+        render.setViewport(0, 0, 500, 500);
         render.clearColor(glm::vec4(0.1, 0.1, 0.1, 1.0));
         render.clearDepth(0.0f);
 
-        float degree = std::sinf(count) * 180.0f * 0.1;
-        count += 0.001f;
+
+        
+
+        //float degree = std::sinf(count) * 180.0f * 0.1;
+        //count += 0.001f;
+        //modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, degree));
         //modelMat = glm::rotate(glm::mat4(1.0f), degree, glm::vec3(0.0f, 1.0f, 0.0f));
 
-        uniforms->uModelMatrix = modelMat;
-        uniforms->uModelViewProjectMatrix = camera.getProjMatrix() * camera.getViewMatrix() * modelMat;
-        uniforms->uInverseTransposeModelMatrix = glm::mat3(glm::transpose(glm::inverse(modelMat)));
-        uniforms->uCameraPostion = glm::vec3(0);
 
-        render.drawMesh1(box.get());
+        //light_position_angle += 0.1;
+        auto light_position = 2.f * glm::vec3(glm::sin(light_position_angle),
+                                    0.0f,
+                                    glm::cos(light_position_angle));
+
+        material.bind();
+
+        material.setModelMatrix(modelMat);
+        material.setModelViewProjectMatrix(camera.getProjMatrix() * camera.getViewMatrix() * modelMat);
+        material.setInverseTransposeModelMatrix(glm::mat3(glm::transpose(glm::inverse(modelMat))));
+        material.setLightPosition(light_position);
+        material.setLightColor(glm::vec3(1.0f, 0.0f, 0.0f));
+        material.setCameraPosition(camera.getEye());
+        
+        material.updateParameters();
+
+        //uniforms->modelMatrix = modelMat;
+        //uniforms->modelViewProjectMatrix = camera.getProjMatrix() * camera.getViewMatrix() * modelMat;
+        //uniforms->inverseTransposeModelMatrix = glm::mat3(glm::transpose(glm::inverse(modelMat)));
+        //uniforms->cameraPostion = glm::vec3(0);
+
+        render.drawMesh1(model.get());
 
         render.swapBuffer();
 

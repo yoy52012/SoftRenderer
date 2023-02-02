@@ -6,6 +6,7 @@
 #include "Mesh.h"
 #include "Shader.h"
 #include "FrameBuffer.h"
+#include "Singleton.h"
 
 namespace SoftRenderer
 {
@@ -44,8 +45,9 @@ namespace SoftRenderer
         }
     };
 
-    class Graphics
+    class Graphics : public Singleton<Graphics>
     {
+        friend class Singleton<Graphics>;
     public:
         struct DepthRange
         {
@@ -55,10 +57,10 @@ namespace SoftRenderer
 
         struct Viewport
         {
-            float x;
-            float y;
-            float width;
-            float height;
+            float x = 0;
+            float y = 0;
+            float width = 1.0f;
+            float height = 1.0f;
         };
 
         enum class DepthFunc 
@@ -116,7 +118,7 @@ namespace SoftRenderer
              */
             Fragment pixels[4];
 
-            BaseFragmentShader frag_shader;
+            std::shared_ptr<BaseFragmentShader> frag_shader;
 
             // Triangular vertex screen space position
             glm::aligned_vec4 triangularVertexScreenPosition[3];
@@ -306,9 +308,9 @@ namespace SoftRenderer
 
         void useProgram(std::shared_ptr<Program> program);
 
-        void setDepthTestEnable(bool enable);
+        void setDepthTest(bool enable);
 
-        void setDepthWriteMask(bool enable);
+        void setDepthWrite(bool enable);
 
         void setDepthFunc(DepthFunc func);
 
@@ -378,7 +380,6 @@ namespace SoftRenderer
 
         Viewport mViewport;
         DepthRange mDepthRange;
-        
         DepthFunc mDepthFunc = DepthFunc::DEPTH_GREATER; // Reversed-Z
         bool mEnableDepthTest = true;
         bool mEnableDepthMask = true;

@@ -157,57 +157,51 @@ namespace SoftRenderer
         {
             for (int32_t x = 0; x < width; x++)
             {
-                
-                //int32_t idx = x + y * width;
+                int32_t idx = x + y * width;
 
-                //switch (component)
-                //{
-                //case STBI_grey:
-                //{
-                //    buffer[idx * 4 + 0] = data[idx];
-                //    buffer[idx * 4 + 1] = data[idx];
-                //    buffer[idx * 4 + 2] = data[idx];
-                //    buffer[idx * 4 + 3] = 255;
-                //    break;
-                //}
-
-                //case STBI_grey_alpha:
-                //{
-                //    buffer[idx * 4 + 0] = data[idx * 2 + 0];
-                //    buffer[idx * 4 + 1] = data[idx * 2 + 0];
-                //    buffer[idx * 4 + 2] = data[idx * 2 + 0];
-                //    buffer[idx * 4 + 3] = data[idx * 2 + 1];
-                //    break;
-                //}
-                //case STBI_rgb:
-                //{
-                //    buffer[idx * 4 + 0] = data[idx * 3 + 0];
-                //    buffer[idx * 4 + 1] = data[idx * 3 + 1];
-                //    buffer[idx * 4 + 2] = data[idx * 3 + 2];
-                //    buffer[idx * 4 + 3] = 255;
-                //    break;
-                //}
-                //case STBI_rgb_alpha:
-                //{
-                //    buffer[idx * 4 + 0] = data[idx * 4 + 0];
-                //    buffer[idx * 4 + 1] = data[idx * 4 + 1];
-                //    buffer[idx * 4 + 2] = data[idx * 4 + 2];
-                //    buffer[idx * 4 + 3] = data[idx * 4 + 3];
-                //    break;
-                //}
-                //default:
-                //    break;
-                //}
-
-                for (int32_t c = 0; c < component; c++)
+                switch (component)
                 {
-                    int32_t idx = y * width * component + x * component + c;
-                    buffer[idx] = data[idx];
+                case STBI_grey:
+                {
+                   buffer[idx * 4 + 0] = data[idx];
+                   buffer[idx * 4 + 1] = data[idx];
+                   buffer[idx * 4 + 2] = data[idx];
+                   buffer[idx * 4 + 3] = 255;
+                   break;
+                }
+
+                case STBI_grey_alpha:
+                {
+                   buffer[idx * 4 + 0] = data[idx * 2 + 0];
+                   buffer[idx * 4 + 1] = data[idx * 2 + 0];
+                   buffer[idx * 4 + 2] = data[idx * 2 + 0];
+                   buffer[idx * 4 + 3] = data[idx * 2 + 1];
+                   break;
+                }
+                case STBI_rgb:
+                {
+                   buffer[idx * 4 + 0] = data[idx * 3 + 0];
+                   buffer[idx * 4 + 1] = data[idx * 3 + 1];
+                   buffer[idx * 4 + 2] = data[idx * 3 + 2];
+                   buffer[idx * 4 + 3] = 255;
+                   break;
+                }
+                case STBI_rgb_alpha:
+                {
+                   buffer[idx * 4 + 0] = data[idx * 4 + 0];
+                   buffer[idx * 4 + 1] = data[idx * 4 + 1];
+                   buffer[idx * 4 + 2] = data[idx * 4 + 2];
+                   buffer[idx * 4 + 3] = data[idx * 4 + 3];
+                   break;
+                }
+                default:
+                   break;
                 }
             }
         }
 
-        image->create(width, height, format, buffer);
+        image->init(width, height, format, buffer);
+        //image->convert(Image::PF_RGBA8888);
 
         stbi_image_free(data);
 
@@ -267,57 +261,51 @@ namespace SoftRenderer
             for (int32_t x = 0; x < width; x++)
             {
 
-                //int32_t idx = x + y * width;
+                int32_t idx = x + y * width;
 
-                //switch (component)
-                //{
-                //case STBI_grey:
-                //{
-                //    buffer[idx * 4 + 0] = data[idx];
-                //    buffer[idx * 4 + 1] = data[idx];
-                //    buffer[idx * 4 + 2] = data[idx];
-                //    buffer[idx * 4 + 3] = 255;
-                //    break;
-                //}
-
-                //case STBI_grey_alpha:
-                //{
-                //    buffer[idx * 4 + 0] = data[idx * 2 + 0];
-                //    buffer[idx * 4 + 1] = data[idx * 2 + 0];
-                //    buffer[idx * 4 + 2] = data[idx * 2 + 0];
-                //    buffer[idx * 4 + 3] = data[idx * 2 + 1];
-                //    break;
-                //}
-                //case STBI_rgb:
-                //{
-                //    buffer[idx * 4 + 0] = data[idx * 3 + 0];
-                //    buffer[idx * 4 + 1] = data[idx * 3 + 1];
-                //    buffer[idx * 4 + 2] = data[idx * 3 + 2];
-                //    buffer[idx * 4 + 3] = 255;
-                //    break;
-                //}
-                //case STBI_rgb_alpha:
-                //{
-                //    buffer[idx * 4 + 0] = data[idx * 4 + 0];
-                //    buffer[idx * 4 + 1] = data[idx * 4 + 1];
-                //    buffer[idx * 4 + 2] = data[idx * 4 + 2];
-                //    buffer[idx * 4 + 3] = data[idx * 4 + 3];
-                //    break;
-                //}
-                //default:
-                //    break;
-                //}
-
-                for (int32_t c = 0; c < component; c++)
+                switch (component)
                 {
-                    int32_t idx = y * width * component + x * component + c;
-                    buffer[idx] = data[idx];
+                case STBI_grey:
+                {
+                    buffer[idx * 4 + 0] = data[idx];
+                    buffer[idx * 4 + 1] = data[idx];
+                    buffer[idx * 4 + 2] = data[idx];
+                    buffer[idx * 4 + 3] = 255;
+                    break;
+                }
+
+                case STBI_grey_alpha:
+                {
+                    buffer[idx * 4 + 0] = data[idx * 2 + 0];
+                    buffer[idx * 4 + 1] = data[idx * 2 + 0];
+                    buffer[idx * 4 + 2] = data[idx * 2 + 0];
+                    buffer[idx * 4 + 3] = data[idx * 2 + 1];
+                    break;
+                }
+                case STBI_rgb:
+                {
+                    buffer[idx * 4 + 0] = data[idx * 3 + 0];
+                    buffer[idx * 4 + 1] = data[idx * 3 + 1];
+                    buffer[idx * 4 + 2] = data[idx * 3 + 2];
+                    buffer[idx * 4 + 3] = 255;
+                    break;
+                }
+                case STBI_rgb_alpha:
+                {
+                    buffer[idx * 4 + 0] = data[idx * 4 + 0];
+                    buffer[idx * 4 + 1] = data[idx * 4 + 1];
+                    buffer[idx * 4 + 2] = data[idx * 4 + 2];
+                    buffer[idx * 4 + 3] = data[idx * 4 + 3];
+                    break;
+                }
+                default:
+                    break;
                 }
             }
         }
 
         image->init(width, height, format, buffer);
-        image->convert(Image::PF_RGBA8888);
+        //image->convert(Image::PF_RGBA8888);
 
         stbi_image_free(data);
 
