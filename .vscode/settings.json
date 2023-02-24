@@ -75,6 +75,17 @@
         "xtree": "cpp",
         "xutility": "cpp",
         "set": "cpp",
-        "cstdarg": "cpp"
+        "cstdarg": "cpp",
+        "bitset": "cpp",
+        "cinttypes": "cpp",
+        "codecvt": "cpp",
+        "fstream": "cpp",
+        "hash_map": "cpp",
+        "hash_set": "cpp",
+        "numeric": "cpp",
+        "random": "cpp",
+        "regex": "cpp",
+        "stack": "cpp",
+        "unordered_set": "cpp"
     }
 }

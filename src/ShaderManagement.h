@@ -3,8 +3,9 @@
 #include <string>
 #include <unordered_map>
 
-#include"Singleton.h"
-#include"BlinnPhongShader.h"
+#include "Singleton.h"
+#include "BlinnPhongShader.h"
+#include "SkyboxShader.h"
 
 namespace SoftRenderer
 {

@@ -124,10 +124,11 @@ namespace SoftRenderer
 
             uploadVertexData(subMesh->vertices, subMesh->indices);
             processVertexShader();
-            //processFrustumClip();
+            processFrustumClip();
             processPerspectiveDivide();
             processViewportTransform();
             processBackFaceCulling();
+
             processRasterization();
             //ProcessFaceWireframe();
         }
@@ -585,7 +586,8 @@ namespace SoftRenderer
             {0, 0, 1, 1}
         };
 
-        for (int32_t faceIndex = 0; faceIndex < faceBuffer.size(); faceIndex++) 
+        size_t face_cnt = faceBuffer.size();
+        for (int32_t faceIndex = 0; faceIndex < face_cnt; faceIndex++) 
         {
             auto& face = faceBuffer[faceIndex];
             int32_t idx0 = face.indices[0];
@@ -761,7 +763,6 @@ namespace SoftRenderer
             {
                 continue;
             }
-
             rasterizeTriangle4(face);
         }
     }
@@ -956,7 +957,7 @@ namespace SoftRenderer
 
         auto block_size = (float)32;
         int32_t blockCountX = (int32_t)((maxX - minX + block_size - 1.0f) / block_size);
-        int32_t blockCountY = (int32_t)((maxY - minY + block_size - 1.0f) / block_size);    
+        int32_t blockCountY = (int32_t)((maxY - minY + block_size - 1.0f) / block_size);
 
         for (int32_t blockY = 0; blockY < blockCountY; blockY++)
         {

@@ -41,6 +41,17 @@ namespace SoftRenderer
         blinnPhongProgram->uniforms = blinnPhongUniforms;
         blinnPhongProgram->link();
         mShaders.emplace("BlinnPhong", blinnPhongProgram);
+
+
+        auto skyboxProgram          = std::make_shared<SkyboxProgram>();
+        auto skyboxVertexShader     = std::make_shared<SkyboxVertexShader>();
+        auto skyboxFragmentShader   = std::make_shared<SkyboxFragmentShader>();
+        auto skyboxUniforms         = std::make_shared<SkyboxShaderUniforms>();
+        skyboxProgram->vertexShader = skyboxVertexShader;
+        skyboxProgram->fragmentShader = skyboxFragmentShader;
+        skyboxProgram->uniforms = skyboxUniforms;
+        skyboxProgram->link();
+        mShaders.emplace("Skybox", skyboxProgram);
         
     }
 }

@@ -28,6 +28,51 @@ int64_t m_fpsTimeRecorder = 0;
 int64_t m_fpsCounter = 0;
 unsigned int m_fps = 0;
 
+float skyboxVertices[] = {
+    // positions
+    -1.0f, 1.0f, -1.0f,
+    -1.0f, -1.0f, -1.0f,
+    1.0f, -1.0f, -1.0f,
+    1.0f, -1.0f, -1.0f,
+    1.0f, 1.0f, -1.0f,
+    -1.0f, 1.0f, -1.0f,
+
+    -1.0f, -1.0f, 1.0f,
+    -1.0f, -1.0f, -1.0f,
+    -1.0f, 1.0f, -1.0f,
+    -1.0f, 1.0f, -1.0f,
+    -1.0f, 1.0f, 1.0f,
+    -1.0f, -1.0f, 1.0f,
+
+    1.0f, -1.0f, -1.0f,
+    1.0f, -1.0f, 1.0f,
+    1.0f, 1.0f, 1.0f,
+    1.0f, 1.0f, 1.0f,
+    1.0f, 1.0f, -1.0f,
+    1.0f, -1.0f, -1.0f,
+
+    -1.0f, -1.0f, 1.0f,
+    -1.0f, 1.0f, 1.0f,
+    1.0f, 1.0f, 1.0f,
+    1.0f, 1.0f, 1.0f,
+    1.0f, -1.0f, 1.0f,
+    -1.0f, -1.0f, 1.0f,
+
+    -1.0f, 1.0f, -1.0f,
+    1.0f, 1.0f, -1.0f,
+    1.0f, 1.0f, 1.0f,
+    1.0f, 1.0f, 1.0f,
+    -1.0f, 1.0f, 1.0f,
+    -1.0f, 1.0f, -1.0f,
+
+    -1.0f, -1.0f, -1.0f,
+    -1.0f, -1.0f, 1.0f,
+    1.0f, -1.0f, -1.0f,
+    1.0f, -1.0f, -1.0f,
+    -1.0f, -1.0f, 1.0f,
+    1.0f, -1.0f, 1.0f
+};
+
 void main()
 {
     ShaderManager::instance().init();
@@ -46,7 +91,7 @@ void main()
     OrbitControllers orbitControllers(camera, window);
 
     std::shared_ptr<Mesh> plane = Mesh::createPlane(2, 2, 1, 1);
-    std::shared_ptr<Mesh> box = Mesh::createBox(1, 1, 1, 1, 1, 1);
+    std::shared_ptr<Mesh> box = Mesh::createBox(2, 2, 2, 1, 1, 1);
     std::shared_ptr<Mesh> sphere = Mesh::createSphere(1.0f, 0.0f, 2.0f * Math::PI, 0.0f, Math::PI);
     std::shared_ptr<Mesh> torusKnot = Mesh::createTorusKnot(10, 3, 64, 8, 2, 3);
 
@@ -54,11 +99,33 @@ void main()
     SceneLoader::instance().loadModel("E:/OpenProject/SoftGLRender/assets/DamagedHelmet/DamagedHelmet.gltf", model);
 
 
+    std::vector<uint32_t> indices;
+    std::vector<glm::vec3> positions;
+
+    for (int i = 0; i < 12; i++) {
+        for (int j = 0; j < 3; j++) 
+        {
+            glm::vec3 position;
+            position.x = skyboxVertices[i * 9 + j * 3 + 0];
+            position.y = skyboxVertices[i * 9 + j * 3 + 1];
+            position.z = skyboxVertices[i * 9 + j * 3 + 2];
+            positions.push_back(position);
+            indices.push_back(i * 3 + j);
+        }
+    }
+    
+    std::shared_ptr<SubMesh> submesh = std::make_shared<SubMesh>();
+    submesh->setPositions(positions);
+    submesh->setIndices(indices);
+    submesh->build();
+
+    std::shared_ptr<Mesh> mesh = std::make_shared<Mesh>();
+    mesh->addSubMesh(submesh);
+
+
     glm::mat4 modelMat = glm::mat4(1.0f);
 
     auto start = std::chrono::steady_clock::now();
-
-    float count = 0.0f;
 
     Graphics& render = Graphics::instance();
     render.init(500, 500);
@@ -75,25 +142,49 @@ void main()
     material.setSpecularStrength(1.0f);
     material.setDiffuseTexture(texture);
 
-    //std::shared_ptr<Program> program = std::make_shared<Program>();
-
-    //std::shared_ptr<BaseVertexShader> vertexShader = std::make_shared<BaseVertexShader>();
-    //std::shared_ptr<BaseFragmentShader> fragmentShader = std::make_shared<BaseFragmentShader>();
-
-    //std::shared_ptr<BaseShaderUniforms> uniforms = std::make_shared<BaseShaderUniforms>();
-
-    //uniforms->uAlbedoMap.bindTexture(texture.get());
-
-    //program->vertexShader = vertexShader;
-    //program->fragmentShader = fragmentShader;
-
-    //program->uniforms = uniforms;
-
-    //program->link();
-
-    //render.useProgram(program);
-
     auto light_position_angle = 0.0f;
+
+
+    std::string right  = "Lake/right.jpg";
+    std::string left   = "Lake/left.jpg";
+    std::string top    = "Lake/top.jpg";
+    std::string bottom = "Lake/bottom.jpg";
+    std::string front  = "Lake/front.jpg";
+    std::string back   = "Lake/back.jpg";
+
+    Image::Ptr rightImage = Image::create(IMAGE_DIR + right);
+    Image::Ptr leftImage = Image::create(IMAGE_DIR + left);
+    Image::Ptr topImage = Image::create(IMAGE_DIR + top);
+    Image::Ptr bottomImage = Image::create(IMAGE_DIR + bottom);
+    Image::Ptr frontImage = Image::create(IMAGE_DIR + front);
+    Image::Ptr backImage = Image::create(IMAGE_DIR + back);
+
+    auto rightTexture = std::make_shared<Texture>();
+    auto leftTexture = std::make_shared<Texture>();
+    auto topTexture = std::make_shared<Texture>();
+    auto bottomTexture = std::make_shared<Texture>();
+    auto frontTexture = std::make_shared<Texture>();
+    auto backTexture = std::make_shared<Texture>();
+
+    rightTexture->initFromImage(rightImage);
+    leftTexture->initFromImage(leftImage);
+    topTexture->initFromImage(topImage);
+    bottomTexture->initFromImage(bottomImage);
+    frontTexture->initFromImage(frontImage);
+    backTexture->initFromImage(backImage);
+
+    std::shared_ptr<Program> skyboxProgram = ShaderManager::instance().getShaderProgram("Skybox");
+    std::shared_ptr<SkyboxShaderUniforms> skyboxUniforms = std::dynamic_pointer_cast<SkyboxShaderUniforms>(skyboxProgram->uniforms);
+    skyboxUniforms->cubeMap.bindTexture(rightTexture.get(), CubeMapFace::TEXTURE_CUBE_MAP_POSITIVE_X);
+    skyboxUniforms->cubeMap.bindTexture(leftTexture.get(), CubeMapFace::TEXTURE_CUBE_MAP_NEGATIVE_X);
+    skyboxUniforms->cubeMap.bindTexture(topTexture.get(), CubeMapFace::TEXTURE_CUBE_MAP_POSITIVE_Y);
+    skyboxUniforms->cubeMap.bindTexture(bottomTexture.get(), CubeMapFace::TEXTURE_CUBE_MAP_NEGATIVE_Y);
+    skyboxUniforms->cubeMap.bindTexture(frontTexture.get(), CubeMapFace::TEXTURE_CUBE_MAP_POSITIVE_Z);
+    skyboxUniforms->cubeMap.bindTexture(backTexture.get(), CubeMapFace::TEXTURE_CUBE_MAP_NEGATIVE_Z);
+
+
+
+    Graphics::instance().useProgram(skyboxProgram);
 
 
     while (!window->shouldClose())
@@ -102,37 +193,28 @@ void main()
         render.clearColor(glm::vec4(0.1, 0.1, 0.1, 1.0));
         render.clearDepth(0.0f);
 
-
-        
-
-        //float degree = std::sinf(count) * 180.0f * 0.1;
-        //count += 0.001f;
-        //modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, degree));
-        //modelMat = glm::rotate(glm::mat4(1.0f), degree, glm::vec3(0.0f, 1.0f, 0.0f));
-
-
-        //light_position_angle += 0.1;
         auto light_position = 2.f * glm::vec3(glm::sin(light_position_angle),
                                     0.0f,
                                     glm::cos(light_position_angle));
 
-        material.bind();
+        //material.bind();
+        //material.setModelMatrix(modelMat);
+        //material.setModelViewProjectMatrix(camera.getProjMatrix() * camera.getViewMatrix() * modelMat);
+        //material.setInverseTransposeModelMatrix(glm::mat3(glm::transpose(glm::inverse(modelMat))));
+        //material.setLightPosition(light_position);
+        //material.setLightColor(glm::vec3(1.0f, 0.0f, 0.0f));
+        //material.setCameraPosition(camera.getEye());
+        //material.updateParameters();
+        //render.drawMesh1(box.get());
 
-        material.setModelMatrix(modelMat);
-        material.setModelViewProjectMatrix(camera.getProjMatrix() * camera.getViewMatrix() * modelMat);
-        material.setInverseTransposeModelMatrix(glm::mat3(glm::transpose(glm::inverse(modelMat))));
-        material.setLightPosition(light_position);
-        material.setLightColor(glm::vec3(1.0f, 0.0f, 0.0f));
-        material.setCameraPosition(camera.getEye());
-        
-        material.updateParameters();
 
-        //uniforms->modelMatrix = modelMat;
-        //uniforms->modelViewProjectMatrix = camera.getProjMatrix() * camera.getViewMatrix() * modelMat;
-        //uniforms->inverseTransposeModelMatrix = glm::mat3(glm::transpose(glm::inverse(modelMat)));
-        //uniforms->cameraPostion = glm::vec3(0);
 
-        render.drawMesh1(model.get());
+        skyboxUniforms->modelMatrix = glm::mat4(1.0f);
+        glm::mat4 view_matrix = glm::mat3(camera.getViewMatrix());
+        skyboxUniforms->modelViewProjectMatrix = camera.getProjMatrix() * view_matrix * glm::mat4(1.0f);
+        render.drawMesh1(mesh.get());
+
+
 
         render.swapBuffer();
 

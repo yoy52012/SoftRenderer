@@ -145,8 +145,6 @@ namespace SoftRenderer
 
     struct BaseShaderVaryings
     {
-        glm::vec2 vTexCoord;
-        glm::vec3 vNormal;
     };
 
     struct BaseShader
@@ -173,11 +171,7 @@ namespace SoftRenderer
             auto* v = (BaseShaderVaryings*)varyings;
 
             glm::vec4 position = glm::vec4(a->position, 1.0f);
-
             gl_Position = u->modelViewProjectMatrix * position;
-
-            varyings->vNormal = u->modelMatrix * glm::vec4(a->normal, 1.0f);
-            varyings->vTexCoord = a->textureCoord;
         }
 
         virtual std::shared_ptr<BaseVertexShader> clone() 
@@ -218,16 +212,7 @@ namespace SoftRenderer
 
         void shaderMain() override
         {
-            auto* u = (BaseShaderUniforms*)uniforms;
-            auto* v = (BaseShaderVaryings*)varyings;
-
             gl_FragDepth = gl_FragCoord.z;
-            float depth = LinearizeDepth(gl_FragCoord.z)/100.0f;
-            gl_FragColor = glm::vec4(glm::vec3(depth), 1.0f);
-
-            glm::vec4 color = u->uAlbedoMap.texture2D(v->vTexCoord);
-
-            //gl_FragColor = color;
         }
 
         virtual std::shared_ptr<BaseFragmentShader> clone() 

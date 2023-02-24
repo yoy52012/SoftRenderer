@@ -161,8 +161,12 @@ namespace SoftRenderer
 
         void shaderMain() override
         {
+
             BaseFragmentShader::shaderMain();
 
+            gl_FragColor = glm::vec4(1.0);
+            return;
+            
             u = (BlinnPhongShaderUniforms*)uniforms;
             v = (BlinnPhongShaderVaryings*)varyings;
 
@@ -231,7 +235,7 @@ namespace SoftRenderer
         CLONE_FRAGMENT_SHADER(BlinnPhongFragmentShader)
     };
 
-    struct BlinnPhongProgram : public Program
+    class BlinnPhongProgram : public Program
     {
     private:
         size_t getVaringsCount() override
