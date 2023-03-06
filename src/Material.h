@@ -2,6 +2,7 @@
 
 #include "MathUtils.h"
 #include "BlinnPhongShader.h"
+#include "SkyboxShader.h"
 
 namespace SoftRenderer
 {
@@ -13,9 +14,9 @@ namespace SoftRenderer
 
         void setShaderProgram(std::shared_ptr<Program>& program);
 
-        void setModelMatrix(const glm::mat4& modelMatrix);
-        void setModelViewProjectMatrix(const glm::mat4& modelViewProjectMatrix);
-        void setInverseTransposeModelMatrix(const glm::mat3& inverseTransposeModelMatrix);
+        //virtual void setModelMatrix(const glm::mat4& modelMatrix);
+        //virtual void setModelViewProjectMatrix(const glm::mat4& modelViewProjectMatrix);
+        //virtual void setInverseTransposeModelMatrix(const glm::mat3& inverseTransposeModelMatrix);
 
         void setLightPosition(const glm::vec3& lightPosition);
         void setLightColor(const glm::vec3& lightColor);
@@ -29,14 +30,37 @@ namespace SoftRenderer
 
     protected:
         std::shared_ptr<Program>            mProgram  = nullptr;
-        std::shared_ptr<BaseShaderUniforms> mUniforms = nullptr;
     };
 
     class BlinnPhongMaterial : public Material
     {
     public:
-        BlinnPhongMaterial() = default;
-        ~BlinnPhongMaterial() = default;
+        BlinnPhongMaterial();
+        ~BlinnPhongMaterial();
+
+        void setModelMatrix(const glm::mat4& modelMatrix)
+        {
+            if(mUniforms != nullptr)
+            {
+                mUniforms->modelMatrix = modelMatrix;
+            }
+        }
+
+        void setModelViewProjectMatrix(const glm::mat4& modelViewProjectMatrix)
+        {
+            if(mUniforms != nullptr)
+            {
+                mUniforms->modelViewProjectMatrix = modelViewProjectMatrix;
+            }
+        }
+
+        void setInverseTransposeModelMatrix(const glm::mat3& inverseTransposeModelMatrix)
+        {
+            if(mUniforms != nullptr)
+            {
+                mUniforms->inverseTransposeModelMatrix = inverseTransposeModelMatrix;
+            }
+        }
 
         void setDiffuseColor(const glm::vec3 &diffuseColor);
         void setSpecularColor(const glm::vec3 &specularColor);
@@ -50,9 +74,11 @@ namespace SoftRenderer
         void setAOTexture(std::shared_ptr<Texture> aoTexture);
 
         void updateParameters();
-    private:
 
     private:
+        std::shared_ptr<BlinnPhongShader::ShaderUniforms> mUniforms = nullptr;
+
+
         glm::vec3 mDiffuseColor = glm::vec3(0);
         glm::vec3 mSpecularColor = glm::vec3(0);
         float mSpecularShininess = 128.0f;
@@ -64,5 +90,22 @@ namespace SoftRenderer
         std::shared_ptr<Texture> mNormalTexture   = nullptr;
         std::shared_ptr<Texture> mAOTexture       = nullptr;
 
+    };
+
+    class SkyboxMaterial : public Material
+    {
+    public:
+        SkyboxMaterial();
+        ~SkyboxMaterial();
+
+        void setModelViewProjectMatrix(const glm::mat4& modelViewProjectMatrix);
+        void setCubemapTexture(std::shared_ptr<Texture>& texture, CubeMapFace face);
+
+        void updateParameters();
+
+    private:
+        std::shared_ptr<SkyboxShader::ShaderUniforms> mUniforms = nullptr;
+
+        std::array<std::shared_ptr<Texture>, 6> mCubemapTextures;
     };
 }

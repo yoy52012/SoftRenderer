@@ -4,8 +4,7 @@
 #include <unordered_map>
 
 #include "Singleton.h"
-#include "BlinnPhongShader.h"
-#include "SkyboxShader.h"
+#include "Shader.h"
 
 namespace SoftRenderer
 {

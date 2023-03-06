@@ -118,7 +118,8 @@ namespace SoftRenderer
              */
             Fragment pixels[4];
 
-            std::shared_ptr<BaseFragmentShader> frag_shader;
+            //std::shared_ptr<BaseFragmentShader> frag_shader;
+            std::shared_ptr<Program> program;
 
             // Triangular vertex screen space position
             glm::aligned_vec4 triangularVertexScreenPosition[3];
@@ -130,7 +131,12 @@ namespace SoftRenderer
 
             bool front_facing = true;
 
-            FragmentQuad(size_t varyingsAlignedSize = 0)
+            FragmentQuad()
+            {
+
+            }
+
+            void allocateVaryings(size_t varyingsAlignedSize = 0)
             {
                 if (varyingsAlignedSize > 0) 
                 {
@@ -204,7 +210,7 @@ namespace SoftRenderer
             void allocVertexVaringMemory(uint32_t varyCount = 0)
             {
                 varyingsCount = varyCount;
-                varyingsAlignedSize = calculateVaryingsAlignedSize(varyCount);
+                varyingsAlignedSize = varyingsCount * sizeof(float);
                 varyingsBuffer = nullptr;
 
                 if (varyingsAlignedSize > 0)
@@ -256,6 +262,16 @@ namespace SoftRenderer
                     ret.varyings = static_cast<float*>(Memory::alignedMalloc(varyingsAlignedSize));//ret.varyings_append.get();
                 }
                 
+                if(v0->varyings == nullptr)
+                {
+                    std::cout << v0->id << std::endl;
+                }
+
+                if(v1->varyings == nullptr)
+                {
+                    std::cout << v1->id << std::endl;
+                }
+
                 vtf_0 = v0->varyings;
                 vtf_1 = v1->varyings;
 
@@ -392,6 +408,8 @@ namespace SoftRenderer
         std::shared_ptr<Program> mProgram = nullptr;
 
         BS::thread_pool_light mThreadPool;
+
+        std::vector<FragmentQuad> mFragmentQuad;
 
     };
 }

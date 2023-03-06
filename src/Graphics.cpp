@@ -49,6 +49,8 @@ namespace SoftRenderer
         //Texture2D::Ptr albedo = std::make_shared<Texture2D>();
         //albedo->initFromImage(image);
         //mShader->mUniforms.albedo = albedo;
+
+        mFragmentQuad.resize(mThreadPool.get_thread_count() + 1);
     }
 
     void Graphics::setViewport(int32_t x, int32_t y, int32_t width, int32_t height)
@@ -523,7 +525,7 @@ namespace SoftRenderer
     {
         mRenderContex.createVertexBuffer(vertices);
         mRenderContex.createIndexBuffer(indices);
-        mRenderContex.allocVertexVaringMemory(mProgram->varyingsCount);
+        mRenderContex.allocVertexVaringMemory(mProgram->getShaderVaryingsSize() / sizeof(float));
     }
 
     void Graphics::processVertexShader()
@@ -532,18 +534,23 @@ namespace SoftRenderer
 
         for (auto& vertex : mRenderContex.vertexBuffer) 
         {
-            vertexShader->attributes = (BaseShaderAttributes*)&vertex.vertex;
+            mProgram->bindVertexAttributes(&vertex.vertex);
+            mProgram->bindVertexShaderVaryings(vertex.varyings);
+            //vertexShader->attributes = (BaseShaderAttributes*)&vertex.vertex;
 
-            if (vertex.varyings == nullptr)
-            {
-                vertexShader->varyings = nullptr;
-            }
-            else 
-            {
-                vertexShader->varyings = (BaseShaderVaryings*)vertex.varyings;
-            }
 
-            vertexShader->shaderMain();
+            //if (vertex.varyings == nullptr)
+            //{
+            //    vertexShader->varyings = nullptr;
+            //}
+            //else 
+            //{
+            //    vertexShader->varyings = (BaseShaderVaryings*)vertex.varyings;
+            //}
+
+            //vertexShader->shaderMain();
+
+            mProgram->executeVertexShader();
 
             vertex.position = vertexShader->gl_Position;
         }
@@ -757,6 +764,12 @@ namespace SoftRenderer
 
     void Graphics::processRasterization()
     {
+        for(auto& quad : mFragmentQuad)
+        {
+            quad.allocateVaryings(mProgram->getShaderVaryingsSize());
+            quad.program = mProgram->clone();
+        }
+        
         for (auto& face : mRenderContex.faceBuffer) 
         {
             if (face.discard) 
@@ -959,6 +972,7 @@ namespace SoftRenderer
         int32_t blockCountX = (int32_t)((maxX - minX + block_size - 1.0f) / block_size);
         int32_t blockCountY = (int32_t)((maxY - minY + block_size - 1.0f) / block_size);
 
+        auto thread_id_map = mThreadPool.get_thread_id_map();
         for (int32_t blockY = 0; blockY < blockCountY; blockY++)
         {
             for (int32_t blockX = 0; blockX < blockCountX; blockX++)
@@ -966,8 +980,12 @@ namespace SoftRenderer
                 mThreadPool.push_task([&, block_size, blockX, blockY]
                 {
                     //TODO too slow here
-                    FragmentQuad fragementQuad(mRenderContex.varyingsAlignedSize);
-                    fragementQuad.frag_shader = mProgram->fragmentShader->clone();
+                    //FragmentQuad fragementQuad(mRenderContex.varyingsAlignedSize);
+                    //fragementQuad.program = mProgram->clone();
+
+
+                    auto& fragementQuad = mFragmentQuad[thread_id_map[std::this_thread::get_id()]];
+
                     fragementQuad.front_facing = face.frontFacing;
 
                     for (int32_t i = 0; i < 3; i++)
@@ -1121,17 +1139,23 @@ namespace SoftRenderer
             uint32_t y = (uint32_t)pos.y;
 
             //BaseFragmentShader& fragmentShader = fragementQuad.frag_shader;
-            fragementQuad.frag_shader->varyings = (BaseShaderVaryings*)pixel.interpolatedVaryings;
-            fragementQuad.frag_shader->gl_FragCoord = glm::vec4(pos.x, pos.y, pos.z, 1.0f / pos.w);
+            //fragementQuad.frag_shader->varyings = (BaseShaderVaryings*)pixel.interpolatedVaryings;
+
+            fragementQuad.program->bindFragmentShaderVaryings(pixel.interpolatedVaryings);
+
+            fragementQuad.program->fragmentShader->gl_FragCoord = glm::vec4(pos.x, pos.y, pos.z, 1.0f / pos.w);
+
+            fragementQuad.program->fragmentShader->gl_FragDepth = pos.z;
 
             // pixel shading
-            fragementQuad.frag_shader->shaderMain();
+            //fragementQuad.program->fragmentShader->shaderMain();
+            fragementQuad.program->executeFragmentShader();
 
             // pixel color
-            glm::vec4 color = glm::clamp(fragementQuad.frag_shader->gl_FragColor, 0.0f, 1.0f);
+            glm::vec4 color = glm::clamp(fragementQuad.program->fragmentShader->gl_FragColor, 0.0f, 1.0f);
 
             // pixel depth
-            float depth = fragementQuad.frag_shader->gl_FragDepth;
+            float depth = fragementQuad.program->fragmentShader->gl_FragDepth;
 
             if (depthTest(x, y, depth))
             {

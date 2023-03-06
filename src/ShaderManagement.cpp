@@ -1,4 +1,6 @@
 #include "ShaderManagement.h"
+#include "BlinnPhongShader.h"
+#include "SkyboxShader.h"
 
 namespace SoftRenderer
 {
@@ -21,35 +23,18 @@ namespace SoftRenderer
 
     void ShaderManager::createShader()
     {
-        auto baseProgram          = std::make_shared<Program>();
-        auto baseVertexShader     = std::make_shared<BaseVertexShader>();
-        auto baseFragmentShader   = std::make_shared<BaseFragmentShader>();
-        auto baseUniforms         = std::make_shared<BaseShaderUniforms>();
-        baseProgram->vertexShader = baseVertexShader;
-        baseProgram->fragmentShader = baseFragmentShader;
-        baseProgram->uniforms = baseUniforms;
-        baseProgram->link();
-        mShaders.emplace("Base", baseProgram);
-
-
-        auto blinnPhongProgram          = std::make_shared<BlinnPhongProgram>();
-        auto blinnPhongVertexShader     = std::make_shared<BlinnPhongVertexShader>();
-        auto blinnPhongFragmentShader   = std::make_shared<BlinnPhongFragmentShader>();
-        auto blinnPhongUniforms         = std::make_shared<BlinnPhongShaderUniforms>();
-        blinnPhongProgram->vertexShader = blinnPhongVertexShader;
-        blinnPhongProgram->fragmentShader = blinnPhongFragmentShader;
-        blinnPhongProgram->uniforms = blinnPhongUniforms;
+        auto blinnPhongProgram          = std::make_shared<Program>();
+        auto blinnPhongVertexShader     = std::make_shared<BlinnPhongShader::BlinnPhongVertexShader>();
+        auto blinnPhongFragmentShader   = std::make_shared<BlinnPhongShader::BlinnPhongFragmentShader>();
+        blinnPhongProgram->attach(blinnPhongVertexShader, blinnPhongFragmentShader);
         blinnPhongProgram->link();
         mShaders.emplace("BlinnPhong", blinnPhongProgram);
 
 
-        auto skyboxProgram          = std::make_shared<SkyboxProgram>();
-        auto skyboxVertexShader     = std::make_shared<SkyboxVertexShader>();
-        auto skyboxFragmentShader   = std::make_shared<SkyboxFragmentShader>();
-        auto skyboxUniforms         = std::make_shared<SkyboxShaderUniforms>();
-        skyboxProgram->vertexShader = skyboxVertexShader;
-        skyboxProgram->fragmentShader = skyboxFragmentShader;
-        skyboxProgram->uniforms = skyboxUniforms;
+        auto skyboxProgram          = std::make_shared<Program>();
+        auto skyboxVertexShader     = std::make_shared<SkyboxShader::SkyboxVertexShader>();
+        auto skyboxFragmentShader   = std::make_shared<SkyboxShader::SkyboxFragmentShader>();
+        skyboxProgram->attach(skyboxVertexShader, skyboxFragmentShader);
         skyboxProgram->link();
         mShaders.emplace("Skybox", skyboxProgram);
         

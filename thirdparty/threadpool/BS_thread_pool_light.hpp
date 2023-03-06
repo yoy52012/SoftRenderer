@@ -23,6 +23,7 @@
 #include <thread>             // std::thread
 #include <type_traits>        // std::common_type_t, std::decay_t, std::invoke_result_t, std::is_void_v
 #include <utility>            // std::forward, std::move, std::swap
+#include <unordered_map>
 
 namespace BS
 {
@@ -199,6 +200,11 @@ namespace BS
             waiting = false;
         }
 
+        std::unordered_map<std::thread::id, uint32_t> get_thread_id_map()
+        {
+            return thread_id_map;
+        }
+
     private:
         // ========================
         // Private member functions
@@ -213,6 +219,7 @@ namespace BS
             for (concurrency_t i = 0; i < thread_count; ++i)
             {
                 threads[i] = std::thread(&thread_pool_light::worker, this);
+                thread_id_map.insert({threads[i].get_id(), i});
             }
         }
 
@@ -228,7 +235,7 @@ namespace BS
                 threads[i].join();
             }
         }
-
+        
         /**
          * @brief Determine how many threads the pool should have, based on the parameter passed to the constructor.
          *
@@ -320,6 +327,8 @@ namespace BS
          * @brief An atomic variable indicating that wait_for_tasks() is active and expects to be notified whenever a task is done.
          */
         std::atomic<bool> waiting = false;
+
+        std::unordered_map<std::thread::id, uint32_t> thread_id_map;
     };
 
 } // namespace BS

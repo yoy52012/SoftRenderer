@@ -99,143 +99,166 @@ namespace SoftRenderer
     };
 
     #define CLONE_VERTEX_SHADER(T) \
-    std::shared_ptr<BaseVertexShader> clone() override \
+    std::shared_ptr<BaseVertexShader> clone() \
     { \
-        auto ret = std::make_shared<T>(); \
-        ret->uniforms = uniforms; \
-        ret->attributes = attributes; \
-        return ret; \
+        return std::make_shared<T>(*this); \
     } \
 
     #define CLONE_FRAGMENT_SHADER(T) \
-    std::shared_ptr<BaseFragmentShader> clone() override \
+    std::shared_ptr<BaseFragmentShader> clone() \
     { \
-        auto ret = std::make_shared<T>(); \
-        ret->uniforms = uniforms; \
-        return ret; \
+        return std::make_shared<T>(*this); \
     } \
 
-    struct BaseShaderAttributes
-    {
-        glm::vec3 position;
-        glm::vec2 textureCoord;
-        glm::vec3 normal;
-        glm::vec3 tangent;
-    };
+    // struct BaseShaderBuiltin
+    // {
 
-    struct BaseShaderUniforms
-    {
-        BaseShaderUniforms() = default;
-        virtual ~BaseShaderUniforms() = default;
+    // };
 
-        glm::mat4 modelMatrix;
-        glm::mat4 modelViewProjectMatrix;
-        glm::mat3 inverseTransposeModelMatrix;
+    // struct BaseShaderAttributes
+    // {
+    //     glm::vec3 position;
+    //     glm::vec2 textureCoord;
+    //     glm::vec3 normal;
+    //     glm::vec3 tangent;
+    // };
 
-        glm::vec3 lightPosition;
-        glm::vec3 lightColor;
-        float lightIntensity = 1.0f;
-        float lightDistance  = 0.0f;
-        float lightDecay = 2.0f;
+    // struct BaseShaderUniforms
+    // {
+    //     glm::mat4 modelMatrix;
+    //     glm::mat4 modelViewProjectMatrix;
+    //     glm::mat3 inverseTransposeModelMatrix;
 
-        glm::vec3 cameraPostion;
+    //     glm::vec3 lightPosition;
+    //     glm::vec3 lightColor;
+    //     float lightIntensity = 1.0f;
+    //     float lightDistance  = 0.0f;
+    //     float lightDecay = 2.0f;
 
-        Sampler2D uAlbedoMap;
-    };
+    //     glm::vec3 cameraPostion;
 
-    struct BaseShaderVaryings
-    {
-    };
+    //     Sampler2D uAlbedoMap;
+    // };
 
-    struct BaseShader
+    // struct BaseShaderVaryings
+    // {
+    // };
+
+    class BaseShader
     {
     public:
         virtual void shaderMain() = 0;
+
+        virtual void bindShaderAttributes(void *ptr) = 0;
+        virtual void bindShaderUniforms(void *ptr) = 0;
+        virtual void bindShaderVaryings(void *ptr) = 0;
+
+        virtual size_t getShaderUniformsSize() = 0;
+        virtual size_t getShaderVaryingsSize() = 0;
+
+        int32_t getUniformLocation(const std::string &name) 
+        {
+            // auto &desc = getUniformsDesc();
+            // for (int i = 0; i < desc.size(); i++) 
+            // {
+            //     if (desc[i].name == name) 
+            //     {
+            //         return i;
+            //     }
+            // }
+            return -1;
+        }
+
+        int32_t getUniformOffset(int loc) 
+        {
+            // auto &desc = getUniformsDesc();
+            // if (loc < 0 || loc > desc.size()) 
+            // {
+            //     return -1;
+            // }
+            // return desc[loc].offset;
+            return -1;
+        }
+
     };
 
-    class BaseVertexShader : BaseShader
+    class BaseVertexShader : public BaseShader
     {
     public:
         // Built-in variables
         glm::vec4 gl_Position;
 
-        // Custom variables
-        BaseShaderAttributes* attributes = nullptr;
-        BaseShaderUniforms*   uniforms = nullptr;
-        BaseShaderVaryings*   varyings = nullptr;
-
-        void shaderMain() override
-        {
-            auto* a = (BaseShaderAttributes*)attributes;
-            auto* u = (BaseShaderUniforms*)uniforms;
-            auto* v = (BaseShaderVaryings*)varyings;
-
-            glm::vec4 position = glm::vec4(a->position, 1.0f);
-            gl_Position = u->modelViewProjectMatrix * position;
-        }
-
-        virtual std::shared_ptr<BaseVertexShader> clone() 
-        {
-            auto ret = std::make_shared<BaseVertexShader>();
-            ret->uniforms = uniforms;
-            ret->attributes = attributes;
-            return ret;
-        }
-
+        virtual std::shared_ptr<BaseVertexShader> clone() = 0;
     };
 
-    class BaseFragmentShader : BaseShader
+    class BaseFragmentShader : public BaseShader
     {
     public:
-
-        // inner input
+        // Built-in variables
         glm::vec4 gl_FragCoord;
         bool gl_FrontFacing;
-
-        // inner output
         float gl_FragDepth;
         glm::vec4 gl_FragColor;
         bool discard = false;
 
-        // Custom variables
-        BaseShaderUniforms* uniforms = nullptr;
-        BaseShaderVaryings* varyings = nullptr;
-
-        float LinearizeDepth(float depth)
-        {
-            float n = 0.1;
-            float f = 100.0;
-            float z = (depth * 2.0 - 1.0); // Back to NDC
-            return (2.0 * n * f) / (f + n - z * (f - n));
-        }
-
-
-        void shaderMain() override
-        {
-            gl_FragDepth = gl_FragCoord.z;
-        }
-
-        virtual std::shared_ptr<BaseFragmentShader> clone() 
-        {
-            auto ret = std::make_shared<BaseFragmentShader>();
-            ret->uniforms = uniforms;
-            return ret;
-        }
-
+        virtual std::shared_ptr<BaseFragmentShader> clone() = 0;
     };
+
+    #define CREATE_SHADER                                 \
+    ShaderAttributes *a = nullptr;                    \
+    ShaderUniforms *u = nullptr;                      \
+    ShaderVaryings *v = nullptr;                      \
+                                                          \
+                                                          \
+    void bindShaderAttributes(void *ptr) override          \
+    {                                                     \
+        a = static_cast<ShaderAttributes *>(ptr);     \
+    }                                                     \
+                                                          \
+    void bindShaderUniforms(void *ptr) override            \
+    {                                                     \
+        u = static_cast<ShaderUniforms *>(ptr);       \
+    }                                                     \
+                                                          \
+    void bindShaderVaryings(void *ptr) override            \
+    {                                                     \
+        v = static_cast<ShaderVaryings *>(ptr);       \
+    }                                                     \
+                                                          \
+    size_t getShaderUniformsSize() override               \
+    {                                                     \
+        return sizeof(ShaderUniforms);                \
+    }                                                     \
+                                                          \
+    size_t getShaderVaryingsSize() override               \
+    {                                                     \
+        return sizeof(ShaderVaryings);                \
+    }
+
+    #define CREATE_SHADER_CLONE(T)                        \
+    std::shared_ptr<ShaderSoft> clone() override \
+    {        \
+        return std::make_shared<T>(*this);                  \
+    }
 
     struct Program
     {
-        size_t varyingsCount;
-        std::shared_ptr<BaseShaderUniforms> uniforms;
+        Program() = default;
+
+        //size_t varyingsCount;
+        std::shared_ptr<uint8_t> uniforms;
         std::shared_ptr<BaseVertexShader> vertexShader;
         std::shared_ptr<BaseFragmentShader> fragmentShader;
 
-        void attach(std::shared_ptr<BaseVertexShader> inVertexShader, std::shared_ptr<BaseFragmentShader> inFragmentShader, std::shared_ptr<BaseShaderUniforms> inUniforms)
+        void attach(std::shared_ptr<BaseVertexShader> inVertexShader, std::shared_ptr<BaseFragmentShader> inFragmentShader)
         {
             vertexShader = inVertexShader;
             fragmentShader = inFragmentShader;
-            uniforms = inUniforms;
+
+            // setup unifroms
+            uniforms = std::shared_ptr<uint8_t>(new uint8_t[vertexShader->getShaderUniformsSize()], [](const uint8_t *ptr) { delete[] ptr; });
+            vertexShader->bindShaderUniforms(uniforms.get());
+            fragmentShader->bindShaderUniforms(uniforms.get());
         }
     
         bool link()
@@ -252,18 +275,76 @@ namespace SoftRenderer
                 return false;
             }
             
-            vertexShader->uniforms = uniforms.get();
-            fragmentShader->uniforms = uniforms.get();
-            varyingsCount = getVaringsCount();
+            //vertexShader->uniforms = uniforms.get();
+            //fragmentShader->uniforms = uniforms.get();
+            //varyingsCount = getVaringsCount();
 
             return true;
         }
 
-    private:
-        virtual size_t getVaringsCount()
+        void bindVertexAttributes(void *ptr) 
         {
-            return sizeof(BaseShaderVaryings) / sizeof(float);
+            vertexShader->bindShaderAttributes(ptr);
         }
+
+        void bindUniform(void *data, size_t len) 
+        {
+            memcpy(uniforms.get(), data, len);
+        }
+
+        void bindVertexShaderVaryings(void* ptr)
+        {
+            vertexShader->bindShaderVaryings(ptr);
+        }
+
+        void bindFragmentShaderVaryings(void* ptr)
+        {
+            fragmentShader->bindShaderVaryings(ptr);
+        }
+
+        size_t getShaderVaryingsSize() 
+        {
+            return vertexShader->getShaderVaryingsSize();
+        }
+
+        uint32_t getUniformLocation(const std::string &name) 
+        {
+            return vertexShader->getUniformLocation(name);
+        }
+
+        void executeVertexShader()
+        {
+            if(vertexShader)
+            {
+                vertexShader->shaderMain();
+            }
+        }
+
+        void executeFragmentShader()
+        {
+            if(fragmentShader)
+            {
+                fragmentShader->shaderMain();
+            }
+        }
+
+        std::shared_ptr<Program> clone() const 
+        {
+            auto ret = std::make_shared<Program>(*this);
+
+            ret->vertexShader = vertexShader->clone();
+            ret->fragmentShader = fragmentShader->clone();
+            //ret->vertex_shader_->BindBuiltin(&ret->builtin_);
+            //ret->fragment_shader_->BindBuiltin(&ret->builtin_);
+
+            return ret;
+        }
+
+    private:
+        //virtual size_t getVaringsCount()
+        //{
+        //    return sizeof(BaseShaderVaryings) / sizeof(float);
+        //}
 
     };
 
